@@ -8,4 +8,5 @@ ISQool
 $ go run isqool COP2220
 ```
 
-*Explore the data using [Tableau](https://www.tableau.com/academic/students) or [RAW](http://rawgraphs.io/).*
+------
+Explore the data using [Tableau](https://www.tableau.com/academic/students) or [RAW](http://rawgraphs.io/). Samples of the output can be found in the [`sample`](sample/) folder.
