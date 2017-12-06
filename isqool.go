@@ -109,11 +109,11 @@ func main() {
 				Term:       cells.Eq(0).Text(),
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
-				PercentA:   float32(percentA + percentAMinus),
-				PercentB:   float32(percentB + percentBMinus + percentBPlus),
-				PercentC:   float32(percentC + percentCPlus),
-				PercentD:   float32(percentD),
-				PercentF:   float32(percentF),
+				PercentA:   percentA + percentAMinus,
+				PercentB:   percentB + percentBMinus + percentBPlus,
+				PercentC:   percentC + percentCPlus,
+				PercentD:   percentD,
+				PercentF:   percentF,
 				Average:    strings.TrimSpace(cells.Eq(14).Text()),
 			}
 			distData[dist.courseKey()] = dist
