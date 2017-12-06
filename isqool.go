@@ -27,14 +27,15 @@ type IsqData struct {
 }
 
 type GradeDistribution struct {
-	Term     string  `csv:"-"`
-	Crn      string  `csv:"-"`
-	PercentA float32 `csv:"A"`
-	PercentB float32 `csv:"B"`
-	PercentC float32 `csv:"C"`
-	PercentD float32 `csv:"D"`
-	PercentF float32 `csv:"F"`
-	Average  string  `csv:"average_gpa"`
+	Term       string  `csv:"-"`
+	Crn        string  `csv:"-"`
+	Instructor string  `csv:"-"`
+	PercentA   float32 `csv:"A"`
+	PercentB   float32 `csv:"B"`
+	PercentC   float32 `csv:"C"`
+	PercentD   float32 `csv:"D"`
+	PercentF   float32 `csv:"F"`
+	Average    string  `csv:"average_gpa"`
 }
 
 type Record struct {
@@ -43,11 +44,11 @@ type Record struct {
 }
 
 func (isq IsqData) courseKey() string {
-	return isq.Term + " " + isq.Crn
+	return isq.Term + " " + isq.Crn + " " + isq.Instructor
 }
 
 func (dist GradeDistribution) courseKey() string {
-	return dist.Term + " " + dist.Crn
+	return dist.Term + " " + dist.Crn + " " + dist.Instructor
 }
 
 func main() {
@@ -105,14 +106,15 @@ func main() {
 			percentF := parse(cells.Eq(12).Text())
 
 			dist := GradeDistribution{
-				Term:     cells.Eq(0).Text(),
-				Crn:      cells.Eq(1).Text(),
-				PercentA: float32(percentA + percentAMinus),
-				PercentB: float32(percentB + percentBMinus + percentBPlus),
-				PercentC: float32(percentC + percentCPlus),
-				PercentD: float32(percentD),
-				PercentF: float32(percentF),
-				Average:  strings.TrimSpace(cells.Eq(14).Text()),
+				Term:       cells.Eq(0).Text(),
+				Crn:        cells.Eq(1).Text(),
+				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
+				PercentA:   float32(percentA + percentAMinus),
+				PercentB:   float32(percentB + percentBMinus + percentBPlus),
+				PercentC:   float32(percentC + percentCPlus),
+				PercentD:   float32(percentD),
+				PercentF:   float32(percentF),
+				Average:    strings.TrimSpace(cells.Eq(14).Text()),
 			}
 			distData[dist.courseKey()] = dist
 		})
@@ -133,6 +135,7 @@ func main() {
 	for key, isq := range isqData {
 		dist, ok := distData[key]
 		if !ok {
+			// TODO: special handling for labs? (they don't have their own grade data)
 			fmt.Println("Omitting", key)
 			continue
 		}
