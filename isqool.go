@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"github.com/gocarina/gocsv"
+	"errors"
 )
 
 type IsqData struct {
@@ -53,14 +54,38 @@ func (dist GradeDistribution) courseKey() string {
 
 func main() {
 	course := os.Args[1] // COT3100, etc.
-	url := "https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id=" + course
+
+	// Get all past ISQ scores and grade distributions for the course
+	records, err := getCourseRecords(course)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
+	fmt.Println("Found", len(records), "records.")
+
+	// Output to file
+	fileName := course + ".csv"
+	fmt.Println("Saving to", fileName)
+	file, err := os.Create(fileName)
+	defer file.Close()
+	if err != nil {
+		panic(err)
+	}
+	err = gocsv.MarshalFile(&records, file)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Success!")
+}
+
+func getCourseRecords(course string) ([]*Record, error) {
+	col := colly.NewCollector()
+	col.CacheDir = "./.cache"
 
 	// Map by courseKey => data so we can later join both data sets
 	isqData := make(map[string]IsqData)
 	distData := make(map[string]GradeDistribution)
-
-	col := colly.NewCollector()
-	col.CacheDir = "./.cache"
+	var records []*Record
 
 	// Download the "Instructional Satisfaction Questionnaire" table
 	col.OnHTML("table.datadisplaytable:nth-child(9)", func(e *colly.HTMLElement) {
@@ -120,40 +145,21 @@ func main() {
 		})
 	})
 
+	url := "https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id=" + course
 	col.Visit(url)
 
-	// Exit on a bad course ID
+	// Fail on a bad course id
 	if len(isqData) == 0 {
-		fmt.Printf("Unable to load data for %s. Aborting.\n", course)
-		os.Exit(0)
+		return nil, errors.New("No data found for course " + course)
 	}
-
-	fmt.Printf("Parsing ISQ data and Grade Distributions for %s...\n", course)
 
 	// Only keep ISQ records that also have grade data (i.e. find the union set)
-	var records []*Record
 	for key, isq := range isqData {
-		dist, ok := distData[key]
-		if !ok {
-			// TODO: special handling for labs? (they don't have their own grade data)
-			fmt.Println("Omitting", key)
-			continue
+		// TODO: special handling for labs? (they don't have their own grade data)
+		if dist, ok := distData[key]; ok {
+			records = append(records, &Record{isq, dist})
 		}
-		records = append(records, &Record{isq, dist})
 	}
-	fmt.Println("Found", len(records), "records.")
 
-	// Output to file
-	fileName := course + ".csv"
-	fmt.Println("Saving to", fileName)
-	file, err := os.Create(fileName)
-	defer file.Close()
-	if err != nil {
-		panic(err)
-	}
-	err = gocsv.MarshalFile(&records, file)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Success!")
+	return records, nil
 }
