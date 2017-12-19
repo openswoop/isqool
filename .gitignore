@@ -19,4 +19,5 @@
 
 ### Program output ###
 .cache/
+.section-cache/
 *.csv

@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"github.com/gocarina/gocsv"
 	"errors"
+	"time"
+	"regexp"
 )
 
 type IsqData struct {
@@ -39,17 +41,40 @@ type GradeDistribution struct {
 	Average    string  `csv:"average_gpa"`
 }
 
+type ScheduleDetail struct {
+	TermId     string  `csv:"-"`
+	Crn        string  `csv:"-"`
+	Instructor string  `csv:"-"`
+	StartTime  string  `csv:"start_time"`
+	Duration   string `csv:"duration"`
+	Days       string  `csv:"days"`
+	Building   string  `csv:"building"`
+	Room       string  `csv:"room"`
+	Credits    string  `csv:"credits"`
+}
+
 type Record struct {
 	IsqData
 	GradeDistribution
 }
 
+type ScheduledRecord struct {
+	Record
+	ScheduleDetail
+}
+
 func (isq IsqData) courseKey() string {
-	return isq.Term + " " + isq.Crn + " " + isq.Instructor
+	term, _ := termToId(isq.Term)
+	return strconv.Itoa(term) + " " + isq.Crn + " " + isq.Instructor
 }
 
 func (dist GradeDistribution) courseKey() string {
-	return dist.Term + " " + dist.Crn + " " + dist.Instructor
+	term, _ := termToId(dist.Term)
+	return strconv.Itoa(term) + " " + dist.Crn + " " + dist.Instructor
+}
+
+func (schd ScheduleDetail) courseKey() string {
+	return schd.TermId + " " + schd.Crn + " " + schd.Instructor
 }
 
 func main() {
@@ -63,6 +88,34 @@ func main() {
 	}
 	fmt.Println("Found", len(records), "records.")
 
+	// Collect all the term IDs we need to query
+	termsFound := make(map[string]bool)
+	termIds := make([]int, 0)
+	for _, record := range records {
+		term := record.IsqData.Term
+		if _, ok := termsFound[term]; !ok {
+			termId, _ := termToId(term)
+			termIds = append(termIds, termId)
+			termsFound[term] = true
+		}
+	}
+
+	// Get this course's scheduling data for the selected terms
+	scheduleDetails, _ := getScheduleDetails(course, termIds)
+
+	// Merge the schedule details with the records
+	scheduleDetailsMap := make(map[string]ScheduleDetail)
+	for _, detail := range scheduleDetails {
+		scheduleDetailsMap[detail.courseKey()] = *detail
+	}
+
+	// Merge the schedule details with the records
+	newRecords := make([]ScheduledRecord, len(records))
+	for i, record := range records {
+		withDetail := scheduleDetailsMap[record.IsqData.courseKey()]
+		newRecords[i] = ScheduledRecord{*record, withDetail}
+	}
+
 	// Output to file
 	fileName := course + ".csv"
 	fmt.Println("Saving to", fileName)
@@ -71,7 +124,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = gocsv.MarshalFile(&records, file)
+	err = gocsv.MarshalFile(newRecords, file)
 	if err != nil {
 		panic(err)
 	}
@@ -145,8 +198,8 @@ func getCourseRecords(course string) ([]*Record, error) {
 		})
 	})
 
-	url := "https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id=" + course
-	col.Visit(url)
+	urlBase := "https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id="
+	col.Visit(urlBase + course)
 
 	// Fail on a bad course id
 	if len(isqData) == 0 {
@@ -162,4 +215,115 @@ func getCourseRecords(course string) ([]*Record, error) {
 	}
 
 	return records, nil
+}
+
+func getScheduleDetails(course string, termIds []int) ([]*ScheduleDetail, error) {
+	col := colly.NewCollector()
+	col.CacheDir = "./.section-cache"
+
+	subject := course[0:3]
+	courseId := course[3:]
+	urlBase := "https://banner.unf.edu/pls/nfpo/bwckctlg.p_disp_listcrse?schd_in=" +
+		"&subj_in=" + subject + "&crse_in=" + courseId + "&term_in="
+
+	var details []*ScheduleDetail
+
+	selector := "table.datadisplaytable:nth-child(5) > tbody > tr:nth-child(even)"
+	col.OnHTML(selector, func(e *colly.HTMLElement) {
+		rows := e.DOM.Find("td table.datadisplaytable tr")
+		data := rows.FilterFunction(func(i int, s *goquery.Selection) bool {
+			// Ignore any laboratory information, for now
+			return strings.Contains(s.Find("td").First().Text(), "Class")
+		}).Find("td")
+
+		// Extract the instructor's last name
+		instructorR := regexp.MustCompile(`\s((?:de )?[\w-]+) \(P\)`)
+		fmt.Println(e.Request.Ctx.Get("term"), data.Last().Text())
+		instructor := instructorR.FindStringSubmatch(data.Last().Text())[1]
+
+		// Extract the start time and class duration
+		var startTime, duration string
+		timeText := data.Eq(1).Text()
+		if timeText != "TBA" {
+			times := strings.Split(data.Eq(1).Text(), " - ")
+			timeBegin, _ := time.Parse("3:04 pm", times[0])
+			timeEnd, _ := time.Parse("3:04 pm", times[1])
+			difference := timeEnd.Sub(timeBegin).Minutes()
+			startTime = timeBegin.Format("1504")
+			duration = strconv.FormatFloat(difference, 'f', -1, 64)
+		}
+
+		// Extract the days the class meets
+		days := strings.TrimSpace(data.Eq(2).Text())
+
+		// Extract the building number and room number
+		var building, room string
+		locationText := strings.TrimSpace(data.Eq(3).Text())
+		if locationText != "Online" && locationText != "Off Main Campus" {
+			locationR := regexp.MustCompile(`(\d+)-[a-zA-Z\s.&-]+(\d+)`)
+			location := locationR.FindStringSubmatch(locationText)
+			building = location[1]
+			room = location[2]
+		} else {
+			building = locationText
+		}
+
+		// Extract the number of credits the course is worth
+		creditsR := regexp.MustCompile(`([\d])\.000 Credits`)
+		credits := creditsR.FindStringSubmatch(e.DOM.Text())[1]
+
+		detail := ScheduleDetail{
+			TermId:     e.Request.Ctx.Get("term"),
+			Crn:        strings.Split(e.DOM.Prev().Text(), " - ")[1],
+			Instructor: instructor,
+			StartTime:  startTime,
+			Duration:   duration,
+			Days:       days,
+			Building:   building,
+			Room:       room,
+			Credits:    credits,
+		}
+		details = append(details, &detail)
+	})
+
+	for _, termId := range termIds {
+		url := urlBase + strconv.Itoa(termId)
+		ctx := colly.NewContext()
+		ctx.Put("term", strconv.Itoa(termId))
+		col.Request("GET", url, nil, ctx, nil)
+	}
+
+	return details, nil
+}
+
+// termToId takes a term string like "Fall 2017" and determines its
+// corresponding id (e.g: 201780)
+func termToId(term string) (int, error) {
+	split := strings.Split(term, " ")
+
+	season := split[0]
+	year, err := strconv.Atoi(split[1])
+	if err != nil {
+		return 0, errors.New(term + " is not a valid term")
+	}
+
+	var seasonSuffix int
+	switch season {
+	case "Spring":
+		seasonSuffix = 1
+	case "Summer":
+		seasonSuffix = 5
+	case "Fall":
+		seasonSuffix = 8
+	default:
+		return 0, errors.New(term + " is not a valid term")
+	}
+
+	// After Spring 2014, the season digit is in the 10s place
+	if year >= 2014 && term != "Spring 2014" {
+		seasonSuffix *= 10
+	}
+
+	id := year*100 + seasonSuffix
+	return id, nil
 }
