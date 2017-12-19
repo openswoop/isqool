@@ -13,11 +13,14 @@ import (
 	"regexp"
 )
 
+type CourseId struct {
+	Term       string `csv:"term"`
+	Crn        string `csv:"crn"`
+	Instructor string `csv:"instructor"`
+}
+
 type IsqData struct {
-	Term         string `csv:"term"`
-	Crn          string `csv:"crn"`
 	Course       string `csv:"course"`
-	Instructor   string `csv:"instructor"`
 	Enrolled     string `csv:"enrolled"`
 	Responded    string `csv:"responded"`
 	ResponseRate string `csv:"response_rate"`
@@ -30,126 +33,109 @@ type IsqData struct {
 }
 
 type GradeDistribution struct {
-	Term       string  `csv:"-"`
-	Crn        string  `csv:"-"`
-	Instructor string  `csv:"-"`
-	PercentA   float32 `csv:"A"`
-	PercentB   float32 `csv:"B"`
-	PercentC   float32 `csv:"C"`
-	PercentD   float32 `csv:"D"`
-	PercentF   float32 `csv:"F"`
-	Average    string  `csv:"average_gpa"`
+	PercentA float32 `csv:"A"`
+	PercentB float32 `csv:"B"`
+	PercentC float32 `csv:"C"`
+	PercentD float32 `csv:"D"`
+	PercentF float32 `csv:"F"`
+	Average  string  `csv:"average_gpa"`
 }
 
 type ScheduleDetail struct {
-	TermId     string  `csv:"-"`
-	Crn        string  `csv:"-"`
-	Instructor string  `csv:"-"`
-	StartTime  string  `csv:"start_time"`
-	Duration   string `csv:"duration"`
-	Days       string  `csv:"days"`
-	Building   string  `csv:"building"`
-	Room       string  `csv:"room"`
-	Credits    string  `csv:"credits"`
+	StartTime string `csv:"start_time"`
+	Duration  string `csv:"duration"`
+	Days      string `csv:"days"`
+	Building  string `csv:"building"`
+	Room      string `csv:"room"`
+	Credits   string `csv:"credits"`
 }
 
 type Record struct {
+	CourseId
 	IsqData
 	GradeDistribution
-}
-
-type ScheduledRecord struct {
-	Record
 	ScheduleDetail
-}
-
-func (isq IsqData) courseKey() string {
-	term, _ := termToId(isq.Term)
-	return strconv.Itoa(term) + " " + isq.Crn + " " + isq.Instructor
-}
-
-func (dist GradeDistribution) courseKey() string {
-	term, _ := termToId(dist.Term)
-	return strconv.Itoa(term) + " " + dist.Crn + " " + dist.Instructor
-}
-
-func (schd ScheduleDetail) courseKey() string {
-	return schd.TermId + " " + schd.Crn + " " + schd.Instructor
 }
 
 func main() {
 	course := os.Args[1] // COT3100, etc.
 
 	// Get all past ISQ scores and grade distributions for the course
-	records, err := getCourseRecords(course)
+	isqData, distData, err := getCourseRecords(course)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(0)
 	}
-	fmt.Println("Found", len(records), "records.")
 
-	// Collect all the term IDs we need to query
+	// Collect all the unique terms/semesters we need to query
 	termsFound := make(map[string]bool)
-	termIds := make([]int, 0)
-	for _, record := range records {
-		term := record.IsqData.Term
-		if _, ok := termsFound[term]; !ok {
-			termId, _ := termToId(term)
-			termIds = append(termIds, termId)
+	terms := make([]string, 0)
+	for id := range isqData {
+		term := id.Term
+		if _, found := termsFound[term]; !found {
+			terms = append(terms, term)
 			termsFound[term] = true
 		}
 	}
 
 	// Get this course's scheduling data for the selected terms
-	scheduleDetails, _ := getScheduleDetails(course, termIds)
+	scheduleDetails, _ := getScheduleDetails(course, terms)
 
-	// Merge the schedule details with the records
-	scheduleDetailsMap := make(map[string]ScheduleDetail)
-	for _, detail := range scheduleDetails {
-		scheduleDetailsMap[detail.courseKey()] = *detail
-	}
-
-	// Merge the schedule details with the records
-	newRecords := make([]ScheduledRecord, len(records))
-	for i, record := range records {
-		withDetail := scheduleDetailsMap[record.IsqData.courseKey()]
-		newRecords[i] = ScheduledRecord{*record, withDetail}
+	// Merge the ISQ records, grade distributions, and schedule details by CourseId,
+	// only keeping records that have all three parts (i.e. the union set)
+	records := make([]Record, 0)
+	for id, isq := range isqData {
+		if dist, ok := distData[id]; ok {
+			if schedule, ok := scheduleDetails[id]; ok {
+				records = append(records, Record{id, isq, dist, schedule})
+			} else {
+				// If this happens, the schedule parser is b0rked
+				class := id.Term + " " + id.Crn + " " + id.Instructor
+				panic("Unable to match schedule data for " + class)
+			}
+		} else {
+			// TODO handle labs? (they don't have grade data)
+			fmt.Println("Omitting", id, "(no grades)")
+		}
 	}
 
 	// Output to file
-	fileName := course + ".csv"
-	fmt.Println("Saving to", fileName)
-	file, err := os.Create(fileName)
-	defer file.Close()
-	if err != nil {
+	fmt.Println("Found", len(records), "records")
+	fmt.Println("Saving to", course+".csv")
+	if err := saveToCsv(course, records); err != nil {
 		panic(err)
 	}
-	err = gocsv.MarshalFile(newRecords, file)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Success!")
 }
 
-func getCourseRecords(course string) ([]*Record, error) {
+func saveToCsv(name string, data interface{}) error {
+	file, err := os.Create(name + ".csv")
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+	return gocsv.MarshalFile(data, file)
+}
+
+func getCourseRecords(course string) (map[CourseId]IsqData, map[CourseId]GradeDistribution, error) {
 	col := colly.NewCollector()
 	col.CacheDir = "./.cache"
 
-	// Map by courseKey => data so we can later join both data sets
-	isqData := make(map[string]IsqData)
-	distData := make(map[string]GradeDistribution)
-	var records []*Record
+	// Map by courseKey => data so we can later join the data sets
+	isqData := make(map[CourseId]IsqData)
+	distData := make(map[CourseId]GradeDistribution)
 
 	// Download the "Instructional Satisfaction Questionnaire" table
 	col.OnHTML("table.datadisplaytable:nth-child(9)", func(e *colly.HTMLElement) {
 		// Read each row sequentially, skipping the two header rows
 		e.DOM.Find("tr:nth-child(n+3)").Each(func(i int, s *goquery.Selection) {
 			cells := s.Find("td")
+			id := CourseId{
+				Term:       cells.Eq(0).Text(),
+				Crn:        cells.Eq(1).Text(),
+				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
+			}
 			data := IsqData{
-				Term:         cells.Eq(0).Text(),
-				Crn:          cells.Eq(1).Text(),
 				Course:       course,
-				Instructor:   strings.TrimSpace(cells.Eq(2).Text()),
 				Enrolled:     strings.TrimSpace(cells.Eq(3).Text()),
 				Responded:    strings.TrimSpace(cells.Eq(4).Text()),
 				ResponseRate: strings.TrimSpace(cells.Eq(5).Text()),
@@ -160,7 +146,7 @@ func getCourseRecords(course string) ([]*Record, error) {
 				Percent1:     strings.TrimSpace(cells.Eq(10).Text()),
 				Rating:       strings.TrimSpace(cells.Eq(12).Text()),
 			}
-			isqData[data.courseKey()] = data
+			isqData[id] = data
 		})
 	})
 
@@ -183,18 +169,20 @@ func getCourseRecords(course string) ([]*Record, error) {
 			percentD := parse(cells.Eq(11).Text())
 			percentF := parse(cells.Eq(12).Text())
 
-			dist := GradeDistribution{
+			id := CourseId{
 				Term:       cells.Eq(0).Text(),
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
-				PercentA:   percentA + percentAMinus,
-				PercentB:   percentB + percentBMinus + percentBPlus,
-				PercentC:   percentC + percentCPlus,
-				PercentD:   percentD,
-				PercentF:   percentF,
-				Average:    strings.TrimSpace(cells.Eq(14).Text()),
 			}
-			distData[dist.courseKey()] = dist
+			dist := GradeDistribution{
+				PercentA: percentA + percentAMinus,
+				PercentB: percentB + percentBMinus + percentBPlus,
+				PercentC: percentC + percentCPlus,
+				PercentD: percentD,
+				PercentF: percentF,
+				Average:  strings.TrimSpace(cells.Eq(14).Text()),
+			}
+			distData[id] = dist
 		})
 	})
 
@@ -203,21 +191,13 @@ func getCourseRecords(course string) ([]*Record, error) {
 
 	// Fail on a bad course id
 	if len(isqData) == 0 {
-		return nil, errors.New("No data found for course " + course)
+		return nil, nil, errors.New("No data found for course " + course)
 	}
 
-	// Only keep ISQ records that also have grade data (i.e. find the union set)
-	for key, isq := range isqData {
-		// TODO: special handling for labs? (they don't have their own grade data)
-		if dist, ok := distData[key]; ok {
-			records = append(records, &Record{isq, dist})
-		}
-	}
-
-	return records, nil
+	return isqData, distData, nil
 }
 
-func getScheduleDetails(course string, termIds []int) ([]*ScheduleDetail, error) {
+func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDetail, error) {
 	col := colly.NewCollector()
 	col.CacheDir = "./.section-cache"
 
@@ -226,7 +206,7 @@ func getScheduleDetails(course string, termIds []int) ([]*ScheduleDetail, error)
 	urlBase := "https://banner.unf.edu/pls/nfpo/bwckctlg.p_disp_listcrse?schd_in=" +
 		"&subj_in=" + subject + "&crse_in=" + courseId + "&term_in="
 
-	var details []*ScheduleDetail
+	schedules := make(map[CourseId]ScheduleDetail)
 
 	selector := "table.datadisplaytable:nth-child(5) > tbody > tr:nth-child(even)"
 	col.OnHTML(selector, func(e *colly.HTMLElement) {
@@ -238,7 +218,6 @@ func getScheduleDetails(course string, termIds []int) ([]*ScheduleDetail, error)
 
 		// Extract the instructor's last name
 		instructorR := regexp.MustCompile(`\s((?:de )?[\w-]+) \(P\)`)
-		fmt.Println(e.Request.Ctx.Get("term"), data.Last().Text())
 		instructor := instructorR.FindStringSubmatch(data.Last().Text())[1]
 
 		// Extract the start time and class duration
@@ -272,28 +251,32 @@ func getScheduleDetails(course string, termIds []int) ([]*ScheduleDetail, error)
 		creditsR := regexp.MustCompile(`([\d])\.000 Credits`)
 		credits := creditsR.FindStringSubmatch(e.DOM.Text())[1]
 
-		detail := ScheduleDetail{
-			TermId:     e.Request.Ctx.Get("term"),
+		id := CourseId{
+			Term:       e.Request.Ctx.Get("term"),
 			Crn:        strings.Split(e.DOM.Prev().Text(), " - ")[1],
 			Instructor: instructor,
-			StartTime:  startTime,
-			Duration:   duration,
-			Days:       days,
-			Building:   building,
-			Room:       room,
-			Credits:    credits,
 		}
-		details = append(details, &detail)
+		schedule := ScheduleDetail{
+			StartTime: startTime,
+			Duration:  duration,
+			Days:      days,
+			Building:  building,
+			Room:      room,
+			Credits:   credits,
+		}
+		schedules[id] = schedule
 	})
 
-	for _, termId := range termIds {
-		url := urlBase + strconv.Itoa(termId)
+	// Request the scheduling details of this course for each term
+	for _, term := range terms {
+		termId, _ := termToId(term)
 		ctx := colly.NewContext()
-		ctx.Put("term", strconv.Itoa(termId))
+		ctx.Put("term", term)
+		url := urlBase + strconv.Itoa(termId)
 		col.Request("GET", url, nil, ctx, nil)
 	}
 
-	return details, nil
+	return schedules, nil
 }
 
 // termToId takes a term string like "Fall 2017" and determines its
