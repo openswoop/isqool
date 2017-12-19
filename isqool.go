@@ -57,6 +57,8 @@ type Record struct {
 	ScheduleDetail
 }
 
+var cacheDir = "./.webcache"
+
 func main() {
 	course := os.Args[1] // COT3100, etc.
 
@@ -79,14 +81,14 @@ func main() {
 	}
 
 	// Get this course's scheduling data for the selected terms
-	scheduleDetails, _ := getScheduleDetails(course, terms)
+	scheduleData, _ := getScheduleDetails(course, terms)
 
 	// Merge the ISQ records, grade distributions, and schedule details by CourseId,
 	// only keeping records that have all three parts (i.e. the union set)
 	records := make([]Record, 0)
 	for id, isq := range isqData {
 		if dist, ok := distData[id]; ok {
-			if schedule, ok := scheduleDetails[id]; ok {
+			if schedule, ok := scheduleData[id]; ok {
 				records = append(records, Record{id, isq, dist, schedule})
 			} else {
 				// If this happens, the schedule parser is b0rked
@@ -118,7 +120,7 @@ func saveToCsv(name string, data interface{}) error {
 
 func getCourseRecords(course string) (map[CourseId]IsqData, map[CourseId]GradeDistribution, error) {
 	col := colly.NewCollector()
-	col.CacheDir = "./.cache"
+	col.CacheDir = cacheDir
 
 	// Map by courseKey => data so we can later join the data sets
 	isqData := make(map[CourseId]IsqData)
@@ -199,7 +201,7 @@ func getCourseRecords(course string) (map[CourseId]IsqData, map[CourseId]GradeDi
 
 func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDetail, error) {
 	col := colly.NewCollector()
-	col.CacheDir = "./.section-cache"
+	col.CacheDir = cacheDir
 
 	subject := course[0:3]
 	courseId := course[3:]
@@ -224,7 +226,7 @@ func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDet
 		var startTime, duration string
 		timeText := data.Eq(1).Text()
 		if timeText != "TBA" {
-			times := strings.Split(data.Eq(1).Text(), " - ")
+			times := strings.Split(timeText, " - ")
 			timeBegin, _ := time.Parse("3:04 pm", times[0])
 			timeEnd, _ := time.Parse("3:04 pm", times[1])
 			difference := timeEnd.Sub(timeBegin).Minutes()
