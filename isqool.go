@@ -213,14 +213,28 @@ func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDet
 	selector := "table.datadisplaytable:nth-child(5) > tbody > tr:nth-child(even)"
 	col.OnHTML(selector, func(e *colly.HTMLElement) {
 		rows := e.DOM.Find("td table.datadisplaytable tr")
-		data := rows.FilterFunction(func(i int, s *goquery.Selection) bool {
+		matches := rows.FilterFunction(func(i int, s *goquery.Selection) bool {
 			// Ignore any laboratory information, for now
 			return strings.Contains(s.Find("td").First().Text(), "Class")
-		}).Find("td")
+		})
+		data := matches.First().Find("td")
 
 		// Extract the instructor's last name
-		instructorR := regexp.MustCompile(`\s((?:de )?[\w-]+) \(P\)`)
+		instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-]+) \(P\)`)
 		instructor := instructorR.FindStringSubmatch(data.Last().Text())[1]
+
+		// Unique key for the map
+		id := CourseId{
+			Term:       e.Request.Ctx.Get("term"),
+			Crn:        strings.Split(e.DOM.Prev().Text(), " - ")[1],
+			Instructor: instructor,
+		}
+
+		// Some classes have an extra meeting on Friday at a different time than the
+		// other meetings, which cannot be represented in the current CSV structure.
+		if matches.Size() > 1 {
+			fmt.Println("Warning:", id, "met at uneven times; omitting additional blocks")
+		}
 
 		// Extract the start time and class duration
 		var startTime, duration string
@@ -241,7 +255,7 @@ func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDet
 		var building, room string
 		locationText := strings.TrimSpace(data.Eq(3).Text())
 		if locationText != "Online" && locationText != "Off Main Campus" {
-			locationR := regexp.MustCompile(`(\d+)-[a-zA-Z\s.&-]+(\d+)`)
+			locationR := regexp.MustCompile(`([\dE]+)-[a-zA-Z\s.&-]+(\d+)`)
 			location := locationR.FindStringSubmatch(locationText)
 			building = location[1]
 			room = location[2]
@@ -253,11 +267,6 @@ func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDet
 		creditsR := regexp.MustCompile(`([\d])\.000 Credits`)
 		credits := creditsR.FindStringSubmatch(e.DOM.Text())[1]
 
-		id := CourseId{
-			Term:       e.Request.Ctx.Get("term"),
-			Crn:        strings.Split(e.DOM.Prev().Text(), " - ")[1],
-			Instructor: instructor,
-		}
 		schedule := ScheduleDetail{
 			StartTime: startTime,
 			Duration:  duration,
