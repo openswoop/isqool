@@ -255,7 +255,7 @@ func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDet
 		var building, room string
 		locationText := strings.TrimSpace(data.Eq(3).Text())
 		if locationText != "Online" && locationText != "Off Main Campus" {
-			locationR := regexp.MustCompile(`([\dE]+)-[a-zA-Z\s.&-]+(\d+)`)
+			locationR := regexp.MustCompile(`([\d]+[A-Z]?)-[a-zA-Z\s.&-]+(\d+)`)
 			location := locationR.FindStringSubmatch(locationText)
 			building = location[1]
 			room = location[2]
