@@ -20,7 +20,6 @@ type CourseId struct {
 }
 
 type IsqData struct {
-	Course       string `csv:"course"`
 	Enrolled     string `csv:"enrolled"`
 	Responded    string `csv:"responded"`
 	ResponseRate string `csv:"response_rate"`
@@ -52,6 +51,7 @@ type ScheduleDetail struct {
 
 type Record struct {
 	CourseId
+	Course string `csv:"course"`
 	IsqData
 	GradeDistribution
 	ScheduleDetail
@@ -89,7 +89,7 @@ func main() {
 	for id, isq := range isqData {
 		if dist, ok := distData[id]; ok {
 			if schedule, ok := scheduleData[id]; ok {
-				records = append(records, Record{id, isq, dist, schedule})
+				records = append(records, Record{id, course, isq, dist, schedule})
 			} else {
 				// If this happens, the schedule parser is b0rked
 				class := id.Term + " " + id.Crn + " " + id.Instructor
@@ -137,7 +137,6 @@ func getCourseRecords(course string) (map[CourseId]IsqData, map[CourseId]GradeDi
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
 			}
 			data := IsqData{
-				Course:       course,
 				Enrolled:     strings.TrimSpace(cells.Eq(3).Text()),
 				Responded:    strings.TrimSpace(cells.Eq(4).Text()),
 				ResponseRate: strings.TrimSpace(cells.Eq(5).Text()),
