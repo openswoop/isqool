@@ -5,12 +5,12 @@ import (
 	"github.com/gocolly/colly"
 	"github.com/PuerkitoBio/goquery"
 	"strings"
-	"fmt"
 	"strconv"
 	"github.com/gocarina/gocsv"
 	"errors"
 	"time"
 	"regexp"
+	"log"
 )
 
 type CourseId struct {
@@ -65,7 +65,7 @@ func main() {
 	// Get all past ISQ scores and grade distributions for the course
 	isqData, distData, err := getCourseRecords(course)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(0)
 	}
 
@@ -97,13 +97,13 @@ func main() {
 			}
 		} else {
 			// TODO handle labs? (they don't have grade data)
-			fmt.Println("Omitting", id, "(no grades)")
+			log.Println("Omitting", id, "(no grades)")
 		}
 	}
 
 	// Output to file
-	fmt.Println("Found", len(records), "records")
-	fmt.Println("Saving to", course+".csv")
+	log.Println("Found", len(records), "records")
+	log.Println("Saving to", course+".csv")
 	if err := saveToCsv(course, records); err != nil {
 		panic(err)
 	}
@@ -232,7 +232,7 @@ func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDet
 		// Some classes have an extra meeting on Friday at a different time than the
 		// other meetings, which cannot be represented in the current CSV structure.
 		if matches.Size() > 1 {
-			fmt.Println("Warning:", id, "met at uneven times; omitting additional blocks")
+			log.Println("Warning:", id, "met at uneven times; omitting additional blocks")
 		}
 
 		// Extract the start time and class duration
