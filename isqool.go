@@ -11,12 +11,24 @@ import (
 	"time"
 	"regexp"
 	"log"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
-type CourseId struct {
+type Course struct {
 	Term       string `csv:"term"`
 	Crn        string `csv:"crn"`
 	Instructor string `csv:"instructor"`
+}
+
+type CourseModel struct {
+	gorm.Model
+	Name string
+	Course
+}
+
+func (CourseModel) TableName() string {
+	return "courses"
 }
 
 type IsqData struct {
@@ -31,6 +43,16 @@ type IsqData struct {
 	Rating       string `csv:"rating"`
 }
 
+type IsqDataModel struct {
+	gorm.Model
+	CourseID uint `sql:"type:integer REFERENCES courses(id)"`
+	IsqData
+}
+
+func (IsqDataModel) TableName() string {
+	return "ratings"
+}
+
 type GradeDistribution struct {
 	PercentA float32 `csv:"A"`
 	PercentB float32 `csv:"B"`
@@ -38,6 +60,16 @@ type GradeDistribution struct {
 	PercentD float32 `csv:"D"`
 	PercentF float32 `csv:"F"`
 	Average  string  `csv:"average_gpa"`
+}
+
+type GradeDistributionModel struct {
+	gorm.Model
+	CourseID uint `sql:"type:integer REFERENCES courses(id)"`
+	GradeDistribution
+}
+
+func (GradeDistributionModel) TableName() string {
+	return "grades"
 }
 
 type ScheduleDetail struct {
@@ -49,15 +81,26 @@ type ScheduleDetail struct {
 	Credits   string `csv:"credits"`
 }
 
+type ScheduleDetailModel struct {
+	gorm.Model
+	CourseID uint `sql:"type:integer REFERENCES courses(id)"`
+	ScheduleDetail
+}
+
+func (ScheduleDetailModel) TableName() string {
+	return "schedules"
+}
+
 type Record struct {
-	CourseId
-	Course string `csv:"course"`
+	Course
+	Name string `csv:"course"`
 	IsqData
 	GradeDistribution
 	ScheduleDetail
 }
 
 var cacheDir = "./.webcache"
+var dbFile = "isqool.db"
 
 func main() {
 	course := os.Args[1] // COT3100, etc.
@@ -83,9 +126,10 @@ func main() {
 	// Get this course's scheduling data for the selected terms
 	scheduleData, _ := getScheduleDetails(course, terms)
 
-	// Merge the ISQ records, grade distributions, and schedule details by CourseId,
+	// Merge the ISQ records, grade distributions, and schedule details by Course,
 	// only keeping records that have all three parts (i.e. the union set)
 	records := make([]Record, 0)
+	// TODO: iterate in order, to make CSVs and database easier to scan as a human
 	for id, isq := range isqData {
 		if dist, ok := distData[id]; ok {
 			if schedule, ok := scheduleData[id]; ok {
@@ -107,10 +151,16 @@ func main() {
 	if err := saveToCsv(course, records); err != nil {
 		panic(err)
 	}
+
+	// Save to database
+	log.Println("Updating database")
+	if err := addToDatabase(course, records); err != nil {
+		panic(err)
+	}
 }
 
-func saveToCsv(name string, data interface{}) error {
-	file, err := os.Create(name + ".csv")
+func saveToCsv(course string, data interface{}) error {
+	file, err := os.Create(course + ".csv")
 	defer file.Close()
 	if err != nil {
 		return err
@@ -118,20 +168,57 @@ func saveToCsv(name string, data interface{}) error {
 	return gocsv.MarshalFile(data, file)
 }
 
-func getCourseRecords(course string) (map[CourseId]IsqData, map[CourseId]GradeDistribution, error) {
+func addToDatabase(course string, records []Record) error {
+	db, err := gorm.Open("sqlite3", dbFile)
+	defer db.Close()
+	if err != nil {
+		return err
+	}
+	db.Exec("PRAGMA foreign_keys = ON;")
+	db.AutoMigrate(&CourseModel{}, &IsqDataModel{}, &GradeDistributionModel{}, &ScheduleDetailModel{})
+
+	// TODO: optimize, implement batch insert (slow for large courses of 400+ sections)
+	for _, record := range records {
+		id := CourseModel{
+			Name:   course,
+			Course: record.Course,
+		}
+		// Must be first, so the model ID is not 0
+		db.FirstOrCreate(&id, &id)
+
+		isq := IsqDataModel{
+			CourseID: id.ID,
+			IsqData:  record.IsqData,
+		}
+		gd := GradeDistributionModel{
+			CourseID:          id.ID,
+			GradeDistribution: record.GradeDistribution,
+		}
+		sch := ScheduleDetailModel{
+			CourseID:       id.ID,
+			ScheduleDetail: record.ScheduleDetail,
+		}
+		db.FirstOrCreate(&isq, &isq)
+		db.FirstOrCreate(&gd, &gd)
+		db.FirstOrCreate(&sch, &sch)
+	}
+	return nil
+}
+
+func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDistribution, error) {
 	col := colly.NewCollector()
 	col.CacheDir = cacheDir
 
 	// Map by courseKey => data so we can later join the data sets
-	isqData := make(map[CourseId]IsqData)
-	distData := make(map[CourseId]GradeDistribution)
+	isqData := make(map[Course]IsqData)
+	distData := make(map[Course]GradeDistribution)
 
 	// Download the "Instructional Satisfaction Questionnaire" table
 	col.OnHTML("table.datadisplaytable:nth-child(9)", func(e *colly.HTMLElement) {
 		// Read each row sequentially, skipping the two header rows
 		e.DOM.Find("tr:nth-child(n+3)").Each(func(i int, s *goquery.Selection) {
 			cells := s.Find("td")
-			id := CourseId{
+			id := Course{
 				Term:       cells.Eq(0).Text(),
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
@@ -170,7 +257,7 @@ func getCourseRecords(course string) (map[CourseId]IsqData, map[CourseId]GradeDi
 			percentD := parse(cells.Eq(11).Text())
 			percentF := parse(cells.Eq(12).Text())
 
-			id := CourseId{
+			id := Course{
 				Term:       cells.Eq(0).Text(),
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
@@ -198,7 +285,7 @@ func getCourseRecords(course string) (map[CourseId]IsqData, map[CourseId]GradeDi
 	return isqData, distData, nil
 }
 
-func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDetail, error) {
+func getScheduleDetails(course string, terms []string) (map[Course]ScheduleDetail, error) {
 	col := colly.NewCollector()
 	col.CacheDir = cacheDir
 
@@ -207,7 +294,7 @@ func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDet
 	urlBase := "https://banner.unf.edu/pls/nfpo/bwckctlg.p_disp_listcrse?schd_in=" +
 		"&subj_in=" + subject + "&crse_in=" + courseId + "&term_in="
 
-	schedules := make(map[CourseId]ScheduleDetail)
+	schedules := make(map[Course]ScheduleDetail)
 
 	selector := "table.datadisplaytable:nth-child(5) > tbody > tr:nth-child(even)"
 	col.OnHTML(selector, func(e *colly.HTMLElement) {
@@ -223,7 +310,7 @@ func getScheduleDetails(course string, terms []string) (map[CourseId]ScheduleDet
 		instructor := instructorR.FindStringSubmatch(data.Last().Text())[1]
 
 		// Unique key for the map
-		id := CourseId{
+		id := Course{
 			Term:       e.Request.Ctx.Get("term"),
 			Crn:        strings.Split(e.DOM.Prev().Text(), " - ")[1],
 			Instructor: instructor,
