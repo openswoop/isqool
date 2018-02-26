@@ -18,27 +18,27 @@ import (
 
 type Course struct {
 	ID         uint64 `db:",primarykey,autoincrement" csv:"-"`
-	Name       string `csv:"course"`
-	Term       string `csv:"term"`
-	Crn        string `csv:"crn"`
-	Instructor string `csv:"instructor"`
+	Name       string `db:"name" csv:"course"`
+	Term       string `db:"term" csv:"term"`
+	Crn        string `db:"crn" csv:"crn"`
+	Instructor string `db:"instructor" csv:"instructor"`
 }
 
 type IsqData struct {
 	ID           uint64 `db:",primarykey,autoincrement" csv:"-"`
 	CourseID     uint64 `db:"course_data" csv:"-"` // TODO mark db foreign key
-	Enrolled     string `csv:"enrolled"`
-	Responded    string `csv:"responded"`
+	Enrolled     string `db:"enrolled" csv:"enrolled"`
+	Responded    string `db:"responded" csv:"responded"`
 	ResponseRate string `db:"response_rate" csv:"response_rate"`
 	Percent5     string `db:"percent_5" csv:"percent_5"`
 	Percent4     string `db:"percent_4" csv:"percent_4"`
 	Percent3     string `db:"percent_3" csv:"percent_3"`
 	Percent2     string `db:"percent_2" csv:"percent_2"`
 	Percent1     string `db:"percent_1" csv:"percent_1"`
-	Rating       string `csv:"rating"`
+	Rating       string `db:"rating" csv:"rating"`
 }
 
-type GradeDistribution struct {
+type GradeDist struct {
 	ID       uint64  `db:",primarykey,autoincrement" csv:"-"`
 	CourseID uint64  `db:"course_id" csv:"-"` // TODO mark db foreign key
 	PercentA float32 `db:"percent_a" csv:"A"`
@@ -49,22 +49,22 @@ type GradeDistribution struct {
 	Average  string  `db:"average_gpa" csv:"average_gpa"`
 }
 
-type ScheduleDetail struct {
+type Schedule struct {
 	ID        uint64 `db:",primarykey,autoincrement" csv:"-"`
 	CourseID  uint64 `db:"course_id" csv:"-"` // TODO mark db foreign key
 	StartTime string `db:"start_time" csv:"start_time"`
-	Duration  string `csv:"duration"`
-	Days      string `csv:"days"`
-	Building  string `csv:"building"`
-	Room      string `csv:"room"`
-	Credits   string `csv:"credits"`
+	Duration  string `db:"duration" csv:"duration"`
+	Days      string `db:"days" csv:"days"`
+	Building  string `db:"building" csv:"building"`
+	Room      string `db:"room" csv:"room"`
+	Credits   string `db:"credits" csv:"credits"`
 }
 
 type Record struct {
 	Course
 	IsqData
-	GradeDistribution
-	ScheduleDetail
+	GradeDist
+	Schedule
 }
 
 var (
@@ -97,7 +97,7 @@ func main() {
 	scheduleData, _ := getScheduleDetails(course, terms)
 
 	// Merge the ISQ records, grade distributions, and schedule details by Course,
-	// only keeping records that have all three parts (i.e. the union set)
+	// only keeping records that have all three parts (i.e. the intersecting set)
 	records := make([]Record, 0)
 	// TODO: iterate in order, to make CSVs and database easier to scan as a human
 	for id, isq := range isqData {
@@ -114,38 +114,31 @@ func main() {
 			log.Println("Omitting", id, "(no grades)")
 		}
 	}
-
-	// Output to file
 	log.Println("Found", len(records), "records")
+
+	// Write to CSV file
 	log.Println("Saving to", course+".csv")
-	if err := saveToCsv(course, records); err != nil {
+	if err := writeCsv(course, records); err != nil {
 		panic(err)
 	}
 
-	// Save to database
-	log.Println("Updating database")
+	// Persist to SQLite3 database
+	log.Println("Updating local database")
 	if err := persistDb(records); err != nil {
 		panic(err)
 	}
 }
 
-func saveToCsv(course string, data interface{}) error {
+func writeCsv(course string, data interface{}) error {
 	file, err := os.Create(course + ".csv")
-	defer file.Close()
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 	return gocsv.MarshalFile(data, file)
 }
 
-func timeTrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	log.Printf("%s took %s", name, elapsed)
-}
-
 func persistDb(records []Record) error {
-	//defer timeTrack(time.Now(), "Persist")
-
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return err
@@ -153,6 +146,7 @@ func persistDb(records []Record) error {
 	dbmap := initDbMap(db)
 	defer db.Close()
 
+	// Wrap inserts in a transaction for the performance gain
 	tx, err := dbmap.Begin()
 	if err != nil {
 		return err
@@ -163,12 +157,12 @@ func persistDb(records []Record) error {
 			// TODO: gracefully skip courses already in the DB
 			return err
 		}
-
+		// Assign foreign keys
 		courseId := record.Course.ID
 		record.IsqData.CourseID = courseId
-		record.GradeDistribution.CourseID = courseId
-		record.ScheduleDetail.CourseID = courseId
-		err = tx.Insert(&record.IsqData, &record.GradeDistribution, &record.ScheduleDetail)
+		record.GradeDist.CourseID = courseId
+		record.Schedule.CourseID = courseId
+		err = tx.Insert(&record.IsqData, &record.GradeDist, &record.Schedule)
 		if err != nil {
 			return err
 		}
@@ -183,8 +177,8 @@ func initDbMap(db *sql.DB) *gorp.DbMap {
 	//dbmap.TraceOn("[gorp]", log.New(os.Stdout, "isqool: ", log.Lmicroseconds))
 	dbmap.AddTableWithName(Course{}, "courses").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
 	dbmap.AddTableWithName(IsqData{}, "isq")
-	dbmap.AddTableWithName(GradeDistribution{}, "grades")
-	dbmap.AddTableWithName(ScheduleDetail{}, "sections")
+	dbmap.AddTableWithName(GradeDist{}, "grades")
+	dbmap.AddTableWithName(Schedule{}, "sections")
 	err := dbmap.CreateTablesIfNotExists() // TODO: use a migration tool
 	if err != nil {
 		panic(err)
@@ -193,13 +187,13 @@ func initDbMap(db *sql.DB) *gorp.DbMap {
 	return dbmap
 }
 
-func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDistribution, error) {
+func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDist, error) {
 	col := colly.NewCollector()
 	col.CacheDir = cacheDir
 
 	// Map by courseKey => data so we can later join the data sets
 	isqData := make(map[Course]IsqData)
-	distData := make(map[Course]GradeDistribution)
+	distData := make(map[Course]GradeDist)
 
 	// Download the "Instructional Satisfaction Questionnaire" table
 	col.OnHTML("table.datadisplaytable:nth-child(9)", func(e *colly.HTMLElement) {
@@ -252,7 +246,7 @@ func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDistri
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
 			}
-			dist := GradeDistribution{
+			dist := GradeDist{
 				PercentA: percentA + percentAMinus,
 				PercentB: percentB + percentBMinus + percentBPlus,
 				PercentC: percentC + percentCPlus,
@@ -275,7 +269,7 @@ func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDistri
 	return isqData, distData, nil
 }
 
-func getScheduleDetails(course string, terms []string) (map[Course]ScheduleDetail, error) {
+func getScheduleDetails(course string, terms []string) (map[Course]Schedule, error) {
 	col := colly.NewCollector()
 	col.CacheDir = cacheDir
 
@@ -284,7 +278,7 @@ func getScheduleDetails(course string, terms []string) (map[Course]ScheduleDetai
 	urlBase := "https://banner.unf.edu/pls/nfpo/bwckctlg.p_disp_listcrse?schd_in=" +
 		"&subj_in=" + subject + "&crse_in=" + courseId + "&term_in="
 
-	schedules := make(map[Course]ScheduleDetail)
+	schedules := make(map[Course]Schedule)
 
 	selector := "table.datadisplaytable:nth-child(5) > tbody > tr:nth-child(even)"
 	col.OnHTML(selector, func(e *colly.HTMLElement) {
@@ -344,7 +338,7 @@ func getScheduleDetails(course string, terms []string) (map[Course]ScheduleDetai
 		creditsR := regexp.MustCompile(`([\d])\.000 Credits`)
 		credits := creditsR.FindStringSubmatch(e.DOM.Text())[1]
 
-		schedule := ScheduleDetail{
+		schedule := Schedule{
 			StartTime: startTime,
 			Duration:  duration,
 			Days:      days,
@@ -397,4 +391,9 @@ func termToId(term string) (int, error) {
 
 	id := year*100 + seasonSuffix
 	return id, nil
+}
+
+func timetrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s took %s", name, elapsed)
 }
