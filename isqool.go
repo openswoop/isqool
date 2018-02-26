@@ -11,69 +11,48 @@ import (
 	"time"
 	"regexp"
 	"log"
-	"github.com/jinzhu/gorm"
+	"database/sql"
+	"github.com/go-gorp/gorp"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
 type Course struct {
+	ID         uint64 `db:",primarykey,autoincrement" csv:"-"`
+	Name       string `csv:"course"`
 	Term       string `csv:"term"`
 	Crn        string `csv:"crn"`
 	Instructor string `csv:"instructor"`
 }
 
-type CourseModel struct {
-	gorm.Model
-	Name string
-	Course
-}
-
-func (CourseModel) TableName() string {
-	return "courses"
-}
-
 type IsqData struct {
+	ID           uint64 `db:",primarykey,autoincrement" csv:"-"`
+	CourseID     uint64 `db:"course_data" csv:"-"` // TODO mark db foreign key
 	Enrolled     string `csv:"enrolled"`
 	Responded    string `csv:"responded"`
-	ResponseRate string `csv:"response_rate"`
-	Percent5     string `csv:"percent_5"`
-	Percent4     string `csv:"percent_4"`
-	Percent3     string `csv:"percent_3"`
-	Percent2     string `csv:"percent_2"`
-	Percent1     string `csv:"percent_1"`
+	ResponseRate string `db:"response_rate" csv:"response_rate"`
+	Percent5     string `db:"percent_5" csv:"percent_5"`
+	Percent4     string `db:"percent_4" csv:"percent_4"`
+	Percent3     string `db:"percent_3" csv:"percent_3"`
+	Percent2     string `db:"percent_2" csv:"percent_2"`
+	Percent1     string `db:"percent_1" csv:"percent_1"`
 	Rating       string `csv:"rating"`
 }
 
-type IsqDataModel struct {
-	gorm.Model
-	CourseID uint `sql:"type:integer REFERENCES courses(id)"`
-	IsqData
-}
-
-func (IsqDataModel) TableName() string {
-	return "ratings"
-}
-
 type GradeDistribution struct {
-	PercentA float32 `csv:"A"`
-	PercentB float32 `csv:"B"`
-	PercentC float32 `csv:"C"`
-	PercentD float32 `csv:"D"`
-	PercentF float32 `csv:"F"`
-	Average  string  `csv:"average_gpa"`
-}
-
-type GradeDistributionModel struct {
-	gorm.Model
-	CourseID uint `sql:"type:integer REFERENCES courses(id)"`
-	GradeDistribution
-}
-
-func (GradeDistributionModel) TableName() string {
-	return "grades"
+	ID       uint64  `db:",primarykey,autoincrement" csv:"-"`
+	CourseID uint64  `db:"course_id" csv:"-"` // TODO mark db foreign key
+	PercentA float32 `db:"percent_a" csv:"A"`
+	PercentB float32 `db:"percent_b" csv:"B"`
+	PercentC float32 `db:"percent_c" csv:"C"`
+	PercentD float32 `db:"percent_d" csv:"D"`
+	PercentF float32 `db:"percent_e" csv:"F"`
+	Average  string  `db:"average_gpa" csv:"average_gpa"`
 }
 
 type ScheduleDetail struct {
-	StartTime string `csv:"start_time"`
+	ID        uint64 `db:",primarykey,autoincrement" csv:"-"`
+	CourseID  uint64 `db:"course_id" csv:"-"` // TODO mark db foreign key
+	StartTime string `db:"start_time" csv:"start_time"`
 	Duration  string `csv:"duration"`
 	Days      string `csv:"days"`
 	Building  string `csv:"building"`
@@ -81,26 +60,17 @@ type ScheduleDetail struct {
 	Credits   string `csv:"credits"`
 }
 
-type ScheduleDetailModel struct {
-	gorm.Model
-	CourseID uint `sql:"type:integer REFERENCES courses(id)"`
-	ScheduleDetail
-}
-
-func (ScheduleDetailModel) TableName() string {
-	return "schedules"
-}
-
 type Record struct {
 	Course
-	Name string `csv:"course"`
 	IsqData
 	GradeDistribution
 	ScheduleDetail
 }
 
-var cacheDir = "./.webcache"
-var dbFile = "isqool.db"
+var (
+	cacheDir = "./.webcache"
+	dbFile   = "isqool.db"
+)
 
 func main() {
 	course := os.Args[1] // COT3100, etc.
@@ -133,7 +103,7 @@ func main() {
 	for id, isq := range isqData {
 		if dist, ok := distData[id]; ok {
 			if schedule, ok := scheduleData[id]; ok {
-				records = append(records, Record{id, course, isq, dist, schedule})
+				records = append(records, Record{id, isq, dist, schedule})
 			} else {
 				// If this happens, the schedule parser is b0rked
 				class := id.Term + " " + id.Crn + " " + id.Instructor
@@ -154,7 +124,7 @@ func main() {
 
 	// Save to database
 	log.Println("Updating database")
-	if err := addToDatabase(course, records); err != nil {
+	if err := persistDb(records); err != nil {
 		panic(err)
 	}
 }
@@ -168,41 +138,59 @@ func saveToCsv(course string, data interface{}) error {
 	return gocsv.MarshalFile(data, file)
 }
 
-func addToDatabase(course string, records []Record) error {
-	db, err := gorm.Open("sqlite3", dbFile)
-	defer db.Close()
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s took %s", name, elapsed)
+}
+
+func persistDb(records []Record) error {
+	//defer timeTrack(time.Now(), "Persist")
+
+	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return err
 	}
-	db.Exec("PRAGMA foreign_keys = ON;")
-	db.AutoMigrate(&CourseModel{}, &IsqDataModel{}, &GradeDistributionModel{}, &ScheduleDetailModel{})
+	dbmap := initDbMap(db)
+	defer db.Close()
 
-	// TODO: optimize, implement batch insert (slow for large courses of 400+ sections)
-	for _, record := range records {
-		id := CourseModel{
-			Name:   course,
-			Course: record.Course,
-		}
-		// Must be first, so the model ID is not 0
-		db.FirstOrCreate(&id, &id)
-
-		isq := IsqDataModel{
-			CourseID: id.ID,
-			IsqData:  record.IsqData,
-		}
-		gd := GradeDistributionModel{
-			CourseID:          id.ID,
-			GradeDistribution: record.GradeDistribution,
-		}
-		sch := ScheduleDetailModel{
-			CourseID:       id.ID,
-			ScheduleDetail: record.ScheduleDetail,
-		}
-		db.FirstOrCreate(&isq, &isq)
-		db.FirstOrCreate(&gd, &gd)
-		db.FirstOrCreate(&sch, &sch)
+	tx, err := dbmap.Begin()
+	if err != nil {
+		return err
 	}
-	return nil
+	for _, record := range records {
+		err := tx.Insert(&record.Course)
+		if err != nil {
+			// TODO: gracefully skip courses already in the DB
+			return err
+		}
+
+		courseId := record.Course.ID
+		record.IsqData.CourseID = courseId
+		record.GradeDistribution.CourseID = courseId
+		record.ScheduleDetail.CourseID = courseId
+		err = tx.Insert(&record.IsqData, &record.GradeDistribution, &record.ScheduleDetail)
+		if err != nil {
+			return err
+		}
+	}
+	err = tx.Commit()
+
+	return err
+}
+
+func initDbMap(db *sql.DB) *gorp.DbMap {
+	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
+	//dbmap.TraceOn("[gorp]", log.New(os.Stdout, "isqool: ", log.Lmicroseconds))
+	dbmap.AddTableWithName(Course{}, "courses").SetUniqueTogether("Name", "Term", "Crn", "Instructor") // todo: optimize order
+	dbmap.AddTableWithName(IsqData{}, "isq")
+	dbmap.AddTableWithName(GradeDistribution{}, "grades")
+	dbmap.AddTableWithName(ScheduleDetail{}, "sections")
+	err := dbmap.CreateTablesIfNotExists() // TODO: use a migration tool
+	if err != nil {
+		panic(err)
+	}
+
+	return dbmap
 }
 
 func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDistribution, error) {
@@ -219,6 +207,7 @@ func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDistri
 		e.DOM.Find("tr:nth-child(n+3)").Each(func(i int, s *goquery.Selection) {
 			cells := s.Find("td")
 			id := Course{
+				Name:       course,
 				Term:       cells.Eq(0).Text(),
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
@@ -258,6 +247,7 @@ func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDistri
 			percentF := parse(cells.Eq(12).Text())
 
 			id := Course{
+				Name:       course,
 				Term:       cells.Eq(0).Text(),
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
@@ -311,6 +301,7 @@ func getScheduleDetails(course string, terms []string) (map[Course]ScheduleDetai
 
 		// Unique key for the map
 		id := Course{
+			Name:       course,
 			Term:       e.Request.Ctx.Get("term"),
 			Crn:        strings.Split(e.DOM.Prev().Text(), " - ")[1],
 			Instructor: instructor,
