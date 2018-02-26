@@ -181,7 +181,7 @@ func persistDb(records []Record) error {
 func initDbMap(db *sql.DB) *gorp.DbMap {
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
 	//dbmap.TraceOn("[gorp]", log.New(os.Stdout, "isqool: ", log.Lmicroseconds))
-	dbmap.AddTableWithName(Course{}, "courses").SetUniqueTogether("Name", "Term", "Crn", "Instructor") // todo: optimize order
+	dbmap.AddTableWithName(Course{}, "courses").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
 	dbmap.AddTableWithName(IsqData{}, "isq")
 	dbmap.AddTableWithName(GradeDistribution{}, "grades")
 	dbmap.AddTableWithName(ScheduleDetail{}, "sections")
