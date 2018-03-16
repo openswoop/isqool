@@ -99,15 +99,16 @@ func main() {
 	// Merge the ISQ records, grade distributions, and schedule details by Course,
 	// only keeping records that have all three parts (i.e. the intersecting set)
 	records := make([]Record, 0)
+	log.Println("Compiling records")
 	// TODO: iterate in order, to make CSVs and database easier to scan as a human
 	for id, isq := range isqData {
 		if dist, ok := distData[id]; ok {
 			if schedule, ok := scheduleData[id]; ok {
 				records = append(records, Record{id, isq, dist, schedule})
 			} else {
-				// If this happens, the schedule parser is b0rked
+				// If this happens, the schedule parser is b0rked or incomplete
 				class := id.Term + " " + id.Crn + " " + id.Instructor
-				panic("Unable to match schedule data for " + class)
+				log.Println("Unable to match schedule data for " + class)
 			}
 		} else {
 			// TODO handle labs? (they don't have grade data)
@@ -287,25 +288,31 @@ func getScheduleDetails(course string, terms []string) (map[Course]Schedule, err
 			// Ignore any laboratory information, for now
 			return strings.Contains(s.Find("td").First().Text(), "Class")
 		})
+
+		// Unique key for the map
+		id := Course{
+			Name: course,
+			Term: e.Request.Ctx.Get("term"),
+			Crn:  strings.Split(e.DOM.Prev().Text(), " - ")[1],
+		}
+
+		if matches.Size() == 0 {
+			// Some classes are "hybrid" classes that only meet on certain weeks of the
+			// month, which require special parsing. Will be implemented soon.
+			log.Println("Warning:", id, "has a hybrid schedule; omitting scheduling data")
+			return; // TODO: collapse all hybrid information into one record
+		} else if matches.Size() > 1 {
+			// Some classes have an extra meeting on Friday at a different time than the
+			// other meetings, which cannot be represented in the current CSV structure.
+			log.Println("Warning:", id, "met at uneven times; omitting additional blocks")
+		}
+
 		data := matches.First().Find("td")
 
 		// Extract the instructor's last name
 		instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-]+) \(P\)`)
 		instructor := instructorR.FindStringSubmatch(data.Last().Text())[1]
-
-		// Unique key for the map
-		id := Course{
-			Name:       course,
-			Term:       e.Request.Ctx.Get("term"),
-			Crn:        strings.Split(e.DOM.Prev().Text(), " - ")[1],
-			Instructor: instructor,
-		}
-
-		// Some classes have an extra meeting on Friday at a different time than the
-		// other meetings, which cannot be represented in the current CSV structure.
-		if matches.Size() > 1 {
-			log.Println("Warning:", id, "met at uneven times; omitting additional blocks")
-		}
+		id.Instructor = instructor
 
 		// Extract the start time and class duration
 		var startTime, duration string
