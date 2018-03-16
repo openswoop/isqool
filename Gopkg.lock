@@ -14,6 +14,12 @@
   revision = "349dd0209470eabd9514242c688c403c0926d266"
 
 [[projects]]
+  name = "github.com/go-gorp/gorp"
+  packages = ["."]
+  revision = "4df78490a9aa9a78b9b02b0c913df8dc1954faee"
+  version = "2.1"
+
+[[projects]]
   name = "github.com/gobwas/glob"
   packages = [
     ".",
@@ -50,10 +56,22 @@
   revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
 
 [[projects]]
+  name = "github.com/jinzhu/gorm"
+  packages = ["dialects/sqlite"]
+  revision = "6ed508ec6a4ecb3531899a69cbc746ccf65a4166"
+  version = "v1.9.1"
+
+[[projects]]
   name = "github.com/kennygrant/sanitize"
   packages = ["."]
   revision = "2e6820834a1f36c626bf19a253b7d3cc060e9b8b"
   version = "v1.2.3"
+
+[[projects]]
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  revision = "6c771bb9887719704b210e87e934f08be014bdb1"
+  version = "v1.6.0"
 
 [[projects]]
   branch = "master"
@@ -122,6 +140,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8b3360f7ef8aaf3f2f2a8519f12ed6ea9b63f4328edb2b470836aba63ba2fc2b"
+  inputs-digest = "69f496efa4f0b33e6a691f3c291b67d4ba793f43323c77f6446e35fefef38caa"
   solver-name = "gps-cdcl"
   solver-version = 1
