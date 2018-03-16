@@ -17,7 +17,7 @@ import (
 )
 
 type Course struct {
-	ID         uint64 `db:",primarykey,autoincrement" csv:"-"`
+	ID         uint64 `db:"id,primarykey,autoincrement" csv:"-"`
 	Name       string `db:"name" csv:"course"`
 	Term       string `db:"term" csv:"term"`
 	Crn        string `db:"crn" csv:"crn"`
@@ -25,7 +25,7 @@ type Course struct {
 }
 
 type IsqData struct {
-	ID           uint64 `db:",primarykey,autoincrement" csv:"-"`
+	ID           uint64 `db:"id,primarykey,autoincrement" csv:"-"`
 	CourseID     uint64 `db:"course_data" csv:"-"` // TODO mark db foreign key
 	Enrolled     string `db:"enrolled" csv:"enrolled"`
 	Responded    string `db:"responded" csv:"responded"`
@@ -39,7 +39,7 @@ type IsqData struct {
 }
 
 type GradeDist struct {
-	ID       uint64  `db:",primarykey,autoincrement" csv:"-"`
+	ID       uint64  `db:"id,primarykey,autoincrement" csv:"-"`
 	CourseID uint64  `db:"course_id" csv:"-"` // TODO mark db foreign key
 	PercentA float32 `db:"percent_a" csv:"A"`
 	PercentB float32 `db:"percent_b" csv:"B"`
@@ -50,7 +50,7 @@ type GradeDist struct {
 }
 
 type Schedule struct {
-	ID        uint64 `db:",primarykey,autoincrement" csv:"-"`
+	ID        uint64 `db:"id,primarykey,autoincrement" csv:"-"`
 	CourseID  uint64 `db:"course_id" csv:"-"` // TODO mark db foreign key
 	StartTime string `db:"start_time" csv:"start_time"`
 	Duration  string `db:"duration" csv:"duration"`
