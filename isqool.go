@@ -16,54 +16,10 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
-type Course struct {
-	ID         uint64 `db:"id,primarykey,autoincrement" csv:"-"`
-	Name       string `db:"name" csv:"course"`
-	Term       string `db:"term" csv:"term"`
-	Crn        string `db:"crn" csv:"crn"`
-	Instructor string `db:"instructor" csv:"instructor"`
-}
-
-type IsqData struct {
-	ID           uint64 `db:"id,primarykey,autoincrement" csv:"-"`
-	CourseID     uint64 `db:"course_data" csv:"-"` // TODO mark db foreign key
-	Enrolled     string `db:"enrolled" csv:"enrolled"`
-	Responded    string `db:"responded" csv:"responded"`
-	ResponseRate string `db:"response_rate" csv:"response_rate"`
-	Percent5     string `db:"percent_5" csv:"percent_5"`
-	Percent4     string `db:"percent_4" csv:"percent_4"`
-	Percent3     string `db:"percent_3" csv:"percent_3"`
-	Percent2     string `db:"percent_2" csv:"percent_2"`
-	Percent1     string `db:"percent_1" csv:"percent_1"`
-	Rating       string `db:"rating" csv:"rating"`
-}
-
-type GradeDist struct {
-	ID       uint64  `db:"id,primarykey,autoincrement" csv:"-"`
-	CourseID uint64  `db:"course_id" csv:"-"` // TODO mark db foreign key
-	PercentA float32 `db:"percent_a" csv:"A"`
-	PercentB float32 `db:"percent_b" csv:"B"`
-	PercentC float32 `db:"percent_c" csv:"C"`
-	PercentD float32 `db:"percent_d" csv:"D"`
-	PercentF float32 `db:"percent_e" csv:"F"`
-	Average  string  `db:"average_gpa" csv:"average_gpa"`
-}
-
-type Schedule struct {
-	ID        uint64 `db:"id,primarykey,autoincrement" csv:"-"`
-	CourseID  uint64 `db:"course_id" csv:"-"` // TODO mark db foreign key
-	StartTime string `db:"start_time" csv:"start_time"`
-	Duration  string `db:"duration" csv:"duration"`
-	Days      string `db:"days" csv:"days"`
-	Building  string `db:"building" csv:"building"`
-	Room      string `db:"room" csv:"room"`
-	Credits   string `db:"credits" csv:"credits"`
-}
-
 type Record struct {
 	Course
-	IsqData
-	GradeDist
+	Isq
+	Grades
 	Schedule
 }
 
@@ -72,7 +28,7 @@ var (
 	dbFile   = "isqool.db"
 )
 
-func main() {
+func main_old() {
 	course := os.Args[1] // COT3100, etc.
 
 	// Get all past ISQ scores and grade distributions for the course
@@ -153,17 +109,18 @@ func persistDb(records []Record) error {
 		return err
 	}
 	for _, record := range records {
-		err := tx.Insert(&record.Course)
+		course := &CourseEntity{Course: record.Course}
+		err := tx.Insert(course)
 		if err != nil {
 			// TODO: gracefully skip courses already in the DB
 			return err
 		}
 		// Assign foreign keys
-		courseId := record.Course.ID
-		record.IsqData.CourseID = courseId
-		record.GradeDist.CourseID = courseId
-		record.Schedule.CourseID = courseId
-		err = tx.Insert(&record.IsqData, &record.GradeDist, &record.Schedule)
+		courseKey := CourseKey{course.ID}
+		isq := &IsqEntity{CourseKey: courseKey, Isq: record.Isq}
+		grades := &GradesEntity{CourseKey: courseKey, Grades: record.Grades}
+		schedule := &ScheduleEntity{CourseKey: courseKey, Schedule: record.Schedule}
+		err = tx.Insert(isq, grades, schedule)
 		if err != nil {
 			return err
 		}
@@ -177,9 +134,9 @@ func initDbMap(db *sql.DB) *gorp.DbMap {
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
 	//dbmap.TraceOn("[gorp]", log.New(os.Stdout, "isqool: ", log.Lmicroseconds))
 	dbmap.AddTableWithName(Course{}, "courses").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
-	dbmap.AddTableWithName(IsqData{}, "isq")
-	dbmap.AddTableWithName(GradeDist{}, "grades")
-	dbmap.AddTableWithName(Schedule{}, "sections")
+	dbmap.AddTableWithName(IsqEntity{}, "isq")
+	dbmap.AddTableWithName(GradesEntity{}, "grades")
+	dbmap.AddTableWithName(ScheduleEntity{}, "sections")
 	err := dbmap.CreateTablesIfNotExists() // TODO: use a migration tool
 	if err != nil {
 		panic(err)
@@ -188,13 +145,13 @@ func initDbMap(db *sql.DB) *gorp.DbMap {
 	return dbmap
 }
 
-func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDist, error) {
+func getCourseRecords(course string) (map[Course]Isq, map[Course]Grades, error) {
 	col := colly.NewCollector()
 	col.CacheDir = cacheDir
 
 	// Map by courseKey => data so we can later join the data sets
-	isqData := make(map[Course]IsqData)
-	distData := make(map[Course]GradeDist)
+	isqData := make(map[Course]Isq)
+	distData := make(map[Course]Grades)
 
 	// Download the "Instructional Satisfaction Questionnaire" table
 	col.OnHTML("table.datadisplaytable:nth-child(9)", func(e *colly.HTMLElement) {
@@ -207,7 +164,7 @@ func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDist, 
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
 			}
-			data := IsqData{
+			data := Isq{
 				Enrolled:     strings.TrimSpace(cells.Eq(3).Text()),
 				Responded:    strings.TrimSpace(cells.Eq(4).Text()),
 				ResponseRate: strings.TrimSpace(cells.Eq(5).Text()),
@@ -247,7 +204,7 @@ func getCourseRecords(course string) (map[Course]IsqData, map[Course]GradeDist, 
 				Crn:        cells.Eq(1).Text(),
 				Instructor: strings.TrimSpace(cells.Eq(2).Text()),
 			}
-			dist := GradeDist{
+			dist := Grades{
 				PercentA: percentA + percentAMinus,
 				PercentB: percentB + percentBMinus + percentBPlus,
 				PercentC: percentC + percentCPlus,
