@@ -48,7 +48,7 @@ type ScheduleEntity struct {
 	Schedule
 }
 
-func (c CourseEntity) Persist(tx Transaction) error {
+func (c *CourseEntity) Persist(tx Transaction) error {
 	return tx.Insert(c)
 }
 
@@ -80,21 +80,28 @@ func (d Dataset) Persist(tx Transaction) error {
 	return nil
 }
 
-type Database struct {
+type SqliteStorage struct {
 	dbmap *gorp.DbMap
 }
 
-func (d Database) Init(db *sql.DB, dialect gorp.Dialect) {
+func NewSqliteStorage(file string) (SqliteStorage, error) {
+	storage := SqliteStorage{}
+
+	db, err := sql.Open("sqlite3", file)
+	if err != nil {
+		return storage, err
+	}
+
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
 	dbmap.AddTableWithName(CourseEntity{}, "courses").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
 	dbmap.AddTableWithName(IsqEntity{}, "isq")
 	dbmap.AddTableWithName(GradesEntity{}, "grades")
 	dbmap.AddTableWithName(ScheduleEntity{}, "sections")
-
-	d.dbmap = dbmap
+	storage.dbmap = dbmap
+	return storage, nil
 }
 
-func (d Database) Save(v Persistable) error {
+func (d SqliteStorage) Save(v Persistable) error {
 	tx, err := d.dbmap.Begin()
 	if err != nil {
 		return err
@@ -104,10 +111,4 @@ func (d Database) Save(v Persistable) error {
 		return err
 	}
 	return tx.Commit()
-}
-
-type NoopDb struct{}
-
-func (NoopDb) Insert(list ...interface{}) error {
-	return nil
 }

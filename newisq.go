@@ -3,9 +3,11 @@ package main
 import (
 	"os"
 	"github.com/gocolly/colly"
+	"log"
 )
 
 type Dataset map[Course][]Feature
+
 type MapperFunc func(Dataset) (Dataset, error)
 
 func (d *Dataset) Apply(mapperFunc MapperFunc) {
@@ -29,18 +31,15 @@ func main() {
 	data.Apply(ResolveGrades(c, course))
 	data.Apply(ResolveSchedule(c, course))
 
-	count := 0
-	for range data {
-		count++
+	log.Println("Found", len(data), "records")
+
+	// Save to the database
+	storage, err := NewSqliteStorage(dbFile)
+	if err != nil {
+		panic(err)
 	}
-
-	print(count)
-
-	//spew.Dump(data)
-
-	// Ensure these models are in the DB
-	// Open up a transaction
-	//var db Database
-	//db.PersistEntity(data)
-	//data.Persist(NoopDb{})
+	err = storage.Save(data)
+	if err != nil {
+		panic(err)
+	}
 }
