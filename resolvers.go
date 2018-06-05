@@ -4,46 +4,71 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"errors"
 	"strings"
-	"reflect"
-	"fmt"
 	"strconv"
+	"time"
+	"regexp"
+	"log"
+	"github.com/gocolly/colly"
+	"bytes"
 )
 
-type Resolver func(Dataset, string) error
-
-type ResolverMap map[reflect.Type]Resolver
-
-func (r ResolverMap) Register(f Feature, resolver Resolver) {
-	r[reflect.TypeOf(f)] = resolver
+type Unmarshaler interface {
+	UnmarshalDoc(doc *goquery.Document) error
 }
 
-func (r ResolverMap) Resolve(course string, features []Feature) (Dataset, error) {
-	data := make(Dataset)
-	for _, f := range features {
-		t := reflect.TypeOf(f)
-		if resolveFunc, ok := r[t]; ok {
-			err := resolveFunc(data, course)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			s := fmt.Sprintf("No Resolvers registered for %s", t)
-			return nil, errors.New(s)
+type Scrapable interface {
+	Urls() []string
+	Unmarshaler
+}
+
+func Scrape(c *colly.Collector, s Scrapable) error {
+	var e error
+	c.OnResponse(func(res *colly.Response) {
+		doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(res.Body))
+		if err != nil {
+			e = err
+			return
+		}
+		e = s.UnmarshalDoc(doc)
+	})
+
+	urls := s.Urls()
+	for _, url := range urls {
+		c.Visit(url)
+		if e != nil {
+			return e
 		}
 	}
-	return data, nil
+	return e
 }
 
-func ResolveIsq(ds Dataset, course string) error {
-	urlBase := "https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id="
-	doc, err := goquery.NewDocument(urlBase + course)
-	if err != nil {
-		return err
+func ResolveIsq(c *colly.Collector, course string) MapperFunc {
+	return func(dataset Dataset) (Dataset, error) {
+		err := Scrape(c, ScrapeIsq{course, dataset})
+		return dataset, err
 	}
-	return UnmarshalIsq(ds, doc)
 }
 
-func UnmarshalIsq(ds Dataset, doc *goquery.Document) error {
+func ResolveGrades(c *colly.Collector, course string) MapperFunc {
+	return func(dataset Dataset) (Dataset, error) {
+		err := Scrape(c, ScrapeGrades{course, dataset})
+		return dataset, err
+	}
+}
+
+func ResolveSchedule(c *colly.Collector, course string) MapperFunc {
+	return func(dataset Dataset) (Dataset, error) {
+		err := Scrape(c, ScrapeSchedule{course, dataset})
+		return dataset, err
+	}
+}
+
+type ScrapeIsq struct {
+	course string
+	data Dataset
+}
+
+func (i ScrapeIsq) UnmarshalDoc(doc *goquery.Document) error {
 	// Select all rows except the two header rows
 	rows := doc.Find("table.datadisplaytable:nth-child(9) tr:nth-child(n+3)")
 	courseCode := doc.Find("table.datadisplaytable:nth-child(5) .dddefault").First().Text()
@@ -73,22 +98,22 @@ func UnmarshalIsq(ds Dataset, doc *goquery.Document) error {
 			Percent1:     strings.TrimSpace(cells.Eq(10).Text()),
 			Rating:       strings.TrimSpace(cells.Eq(12).Text()),
 		}
-		ds[course] = append(ds[course], data)
+		i.data[course] = append(i.data[course], data)
 	})
 
-	return nil;
+	return nil
 }
 
-func ResolveGrades(ds Dataset, course string) error {
-	urlBase := "https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id="
-	doc, err := goquery.NewDocument(urlBase + course)
-	if err != nil {
-		return err
-	}
-	return UnmarshalGrades(ds, doc)
+func (i ScrapeIsq) Urls() []string {
+	return []string{"https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id=" + i.course}
 }
 
-func UnmarshalGrades(ds Dataset, doc *goquery.Document) error {
+type ScrapeGrades struct {
+	course string
+	data Dataset
+}
+
+func (g ScrapeGrades) UnmarshalDoc(doc *goquery.Document) error {
 	// Select all rows from the "Grade Distribution Percentages" table except the headers
 	rows := doc.Find("table.datadisplaytable:nth-child(14) tr:nth-child(n+3)")
 	courseCode := doc.Find("table.datadisplaytable:nth-child(5) .dddefault").First().Text()
@@ -129,36 +154,47 @@ func UnmarshalGrades(ds Dataset, doc *goquery.Document) error {
 			PercentF: percentF,
 			Average:  strings.TrimSpace(cells.Eq(14).Text()),
 		}
-		ds[course] = append(ds[course], grades)
+		g.data[course] = append(g.data[course], grades)
 	})
 
-	return nil;
+	return nil
 }
 
-func ResolveSchedule(ds Dataset, course string) error {
-	// URL to scrape
-	subject := course[0:3]
-	courseId := course[3:]
+func (g ScrapeGrades) Urls() []string {
+	return []string{"https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id=" + g.course}
+}
+
+type ScrapeSchedule struct {
+	course string
+	data   Dataset
+}
+
+func (sch ScrapeSchedule) Urls() []string {
+	subject := sch.course[0:3]
+	courseId := sch.course[3:]
 	urlBase := "https://banner.unf.edu/pls/nfpo/bwckctlg.p_disp_listcrse?schd_in=" +
 		"&subj_in=" + subject + "&crse_in=" + courseId + "&term_in="
 
-	// Terms to scrape
-	var termIds []int
-	for _, term := range termIds {
-		doc, err := goquery.NewDocument(urlBase + strconv.Itoa(term))
+	// Collect all the unique terms/semesters we need to query
+	termsFound := make(map[int]bool)
+	urls := make([]string, 0)
+	for id := range sch.data {
+		term, err := termToId(id.Term)
 		if err != nil {
-			return err
+			continue
 		}
-		if err := UnmarshalSchedule(ds, doc); err != nil {
-			return err
+		if _, found := termsFound[term]; !found {
+			urls = append(urls, urlBase + strconv.Itoa(term))
+			termsFound[term] = true
 		}
 	}
 
-	return nil;
+	return urls
 }
 
-func UnmarshalSchedule(ds Dataset, doc *goquery.Document) (error) {
+func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 	tables := doc.Find("table.datadisplaytable:nth-child(5) > tbody > tr:nth-child(even)")
+	term := strings.TrimSpace(doc.Find(".staticheaders").Contents().Eq(0).Text())
 
 	tables.Each(func(_ int, s *goquery.Selection) {
 		rows := s.Find("td table.datadisplaytable tr").FilterFunction(func(_ int, s *goquery.Selection) bool {
@@ -166,6 +202,73 @@ func UnmarshalSchedule(ds Dataset, doc *goquery.Document) (error) {
 			return strings.Contains(s.Find("td").First().Text(), "Class")
 		})
 
+		// Unique key for the map
+		headerData := strings.Split(s.Prev().Text(), " - ")
+		course := Course{
+			Name: strings.Replace(headerData[2], " ", "", 1),
+			Term: term,
+			Crn:  headerData[1],
+		}
 
+		if rows.Size() == 0 {
+			// Some classes are "hybrid" classes that only meet on certain weeks of the
+			// month, which require special parsing. Will be implemented soon.
+			log.Println("Warning:", course, "has a hybrid schedule; omitting scheduling data")
+			return // TODO: collapse all hybrid information into one record
+		} else if rows.Size() > 1 {
+			// Some classes have an extra meeting on Friday at a different time than the
+			// other meetings, which cannot be represented in the current CSV structure.
+			log.Println("Warning:", course, "met at uneven times; omitting additional blocks")
+		}
+
+		data := rows.First().Find("td")
+
+		// Extract the instructor's last name
+		instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-]+) \(P\)`)
+		instructor := instructorR.FindStringSubmatch(data.Last().Text())[1]
+		course.Instructor = instructor
+
+		// Extract the start time and class duration
+		var startTime, duration string
+		timeText := data.Eq(1).Text()
+		if timeText != "TBA" {
+			times := strings.Split(timeText, " - ")
+			timeBegin, _ := time.Parse("3:04 pm", times[0])
+			timeEnd, _ := time.Parse("3:04 pm", times[1])
+			difference := timeEnd.Sub(timeBegin).Minutes()
+			startTime = timeBegin.Format("1504")
+			duration = strconv.FormatFloat(difference, 'f', -1, 64)
+		}
+
+		// Extract the days the class meets
+		days := strings.TrimSpace(data.Eq(2).Text())
+
+		// Extract the building number and room number
+		var building, room string
+		locationText := strings.TrimSpace(data.Eq(3).Text())
+		if locationText != "Online" && locationText != "Off Main Campus" {
+			locationR := regexp.MustCompile(`([\d]+[A-Z]?)-[a-zA-Z\s.&-]+(\d+)`)
+			location := locationR.FindStringSubmatch(locationText)
+			building = location[1]
+			room = location[2]
+		} else {
+			building = locationText
+		}
+
+		// Extract the number of credits the course is worth
+		creditsR := regexp.MustCompile(`([\d])\.000 Credits`)
+		credits := creditsR.FindStringSubmatch(s.Text())[1]
+
+		schedule := Schedule{
+			StartTime: startTime,
+			Duration:  duration,
+			Days:      days,
+			Building:  building,
+			Room:      room,
+			Credits:   credits,
+		}
+		sch.data[course] = append(sch.data[course], schedule)
 	})
+
+	return nil
 }

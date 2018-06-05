@@ -2,35 +2,45 @@ package main
 
 import (
 	"os"
+	"github.com/gocolly/colly"
 )
 
 type Dataset map[Course][]Feature
+type MapperFunc func(Dataset) (Dataset, error)
+
+func (d *Dataset) Apply(mapperFunc MapperFunc) {
+	res, err := mapperFunc(*d)
+	if err != nil {
+		panic(err)
+	}
+	*d = res
+}
 
 func main() {
 	course := os.Args[1]
 
-	// We want the following features
-	features := []Feature{
-		Isq{},
-		Grades{},
-		Schedule{},
+	// Set up colly
+	c := colly.NewCollector()
+	c.CacheDir = cacheDir
+
+	// Scrape the data
+	data := Dataset{}
+	data.Apply(ResolveIsq(c, course))
+	data.Apply(ResolveGrades(c, course))
+	data.Apply(ResolveSchedule(c, course))
+
+	count := 0
+	for range data {
+		count++
 	}
 
-	// Register the scrapers
-	resolvers := ResolverMap{}
-	resolvers.Register(Isq{}, ResolveIsq)
-	resolvers.Register(Grades{}, ResolveGrades)
-	resolvers.Register(Schedule{}, ResolveSchedule)
+	print(count)
 
-	// Ready, set, go!
-	data, err := resolvers.Resolve(course, features)
-	if err != nil {
-		panic(err)
-	}
+	//spew.Dump(data)
 
 	// Ensure these models are in the DB
 	// Open up a transaction
 	//var db Database
 	//db.PersistEntity(data)
-	data.Persist(NoopDb{})
+	//data.Persist(NoopDb{})
 }
