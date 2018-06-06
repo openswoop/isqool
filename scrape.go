@@ -23,6 +23,7 @@ type Scrapable interface {
 
 func Scrape(c *colly.Collector, s Scrapable) error {
 	var e error
+	c = c.Clone() // same collector but without old callbacks
 	c.OnResponse(func(res *colly.Response) {
 		doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(res.Body))
 		if err != nil {

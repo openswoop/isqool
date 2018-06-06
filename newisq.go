@@ -41,4 +41,12 @@ func main() {
 		panic(err)
 	}
 	storage.Close()
+	log.Println("Saved to database", dbFile)
+
+	// Also output to a csv
+	view := CsvRows{}
+	view.UnmarshalDataset(data)
+	fileName := course + ".csv"
+	SaveAsCsv(view, fileName)
+	log.Println("Wrote to file", fileName)
 }
