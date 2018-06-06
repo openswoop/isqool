@@ -16,7 +16,8 @@ This project requires **Go**. Their website provides [installers](https://golang
 ###### Quick install
 
 ```shell
-$ go get https://github.com/rothso/isqool
+# Install or update
+$ go get -u github.com/rothso/isqool
 ```
 
 ### Usage
