@@ -3,6 +3,8 @@ package main
 import (
 	"github.com/go-gorp/gorp"
 	"database/sql"
+	"github.com/mattn/go-sqlite3"
+	"log"
 )
 
 type Persistable interface {
@@ -17,8 +19,26 @@ type Transaction interface {
 	Insert(list ...interface{}) error
 }
 
+type InsertFunc func(...interface{}) error
+
+func (f InsertFunc) Insert(list ...interface{}) error {
+	return f(list...)
+}
+
+func InsertIgnoringDupes(t Transaction) Transaction {
+	return InsertFunc(func(list ...interface{}) error {
+		err := t.Insert(list...)
+		if sqliteError, ok := err.(sqlite3.Error); ok {
+			if sqliteError.ExtendedCode == sqlite3.ErrConstraintUnique {
+				return nil; // silently ignore
+			}
+		}
+		return err
+	})
+}
+
 type PrimaryKey struct {
-	ID uint64 `db:"id" csv:"-"`
+	ID uint64 `db:"id, primarykey, autoincrement" csv:"-"`
 }
 
 type CourseKey struct {
@@ -48,8 +68,8 @@ type ScheduleEntity struct {
 	Schedule
 }
 
-func (c *CourseEntity) Persist(tx Transaction) error {
-	return tx.Insert(c)
+func (c CourseEntity) Persist(tx Transaction) error {
+	return tx.Insert(&c)
 }
 
 func (i Isq) Persist(tx Transaction, courseKey CourseKey) error {
@@ -84,12 +104,12 @@ type SqliteStorage struct {
 	dbmap *gorp.DbMap
 }
 
-func NewSqliteStorage(file string) (SqliteStorage, error) {
+func NewSqliteStorage(file string) SqliteStorage {
 	storage := SqliteStorage{}
 
 	db, err := sql.Open("sqlite3", file)
 	if err != nil {
-		return storage, err
+		log.Panic("Unable to connect to database: ", err)
 	}
 
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
@@ -97,8 +117,9 @@ func NewSqliteStorage(file string) (SqliteStorage, error) {
 	dbmap.AddTableWithName(IsqEntity{}, "isq")
 	dbmap.AddTableWithName(GradesEntity{}, "grades")
 	dbmap.AddTableWithName(ScheduleEntity{}, "sections")
+	dbmap.CreateTablesIfNotExists()
 	storage.dbmap = dbmap
-	return storage, nil
+	return storage
 }
 
 func (d SqliteStorage) Save(v Persistable) error {
@@ -106,7 +127,7 @@ func (d SqliteStorage) Save(v Persistable) error {
 	if err != nil {
 		return err
 	}
-	err = v.Persist(tx)
+	err = v.Persist(InsertIgnoringDupes(tx))
 	if err != nil {
 		return err
 	}

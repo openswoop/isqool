@@ -23,11 +23,6 @@ type Record struct {
 	Schedule
 }
 
-var (
-	cacheDir = "./.webcache"
-	dbFile   = "isqool.db"
-)
-
 func main_old() {
 	course := os.Args[1] // COT3100, etc.
 
@@ -323,41 +318,4 @@ func getScheduleDetails(course string, terms []string) (map[Course]Schedule, err
 	}
 
 	return schedules, nil
-}
-
-// termToId takes a term string like "Fall 2017" and determines its
-// corresponding id (e.g: 201780)
-func termToId(term string) (int, error) {
-	split := strings.Split(term, " ")
-
-	season := split[0]
-	year, err := strconv.Atoi(split[1])
-	if err != nil {
-		return 0, errors.New(term + " is not a valid term")
-	}
-
-	var seasonSuffix int
-	switch season {
-	case "Spring":
-		seasonSuffix = 1
-	case "Summer":
-		seasonSuffix = 5
-	case "Fall":
-		seasonSuffix = 8
-	default:
-		return 0, errors.New(term + " is not a valid term")
-	}
-
-	// After Spring 2014, the season digit is in the 10s place
-	if year >= 2014 && term != "Spring 2014" {
-		seasonSuffix *= 10
-	}
-
-	id := year*100 + seasonSuffix
-	return id, nil
-}
-
-func timetrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	log.Printf("%s took %s", name, elapsed)
 }

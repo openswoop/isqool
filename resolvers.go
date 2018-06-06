@@ -42,21 +42,23 @@ func Scrape(c *colly.Collector, s Scrapable) error {
 	return e
 }
 
-func ResolveIsq(c *colly.Collector, course string) MapperFunc {
+type MapFunc func(Dataset) (Dataset, error)
+
+func ResolveIsq(c *colly.Collector, course string) MapFunc {
 	return func(dataset Dataset) (Dataset, error) {
 		err := Scrape(c, ScrapeIsq{course, dataset})
 		return dataset, err
 	}
 }
 
-func ResolveGrades(c *colly.Collector, course string) MapperFunc {
+func ResolveGrades(c *colly.Collector, course string) MapFunc {
 	return func(dataset Dataset) (Dataset, error) {
 		err := Scrape(c, ScrapeGrades{course, dataset})
 		return dataset, err
 	}
 }
 
-func ResolveSchedule(c *colly.Collector, course string) MapperFunc {
+func ResolveSchedule(c *colly.Collector, course string) MapFunc {
 	return func(dataset Dataset) (Dataset, error) {
 		err := Scrape(c, ScrapeSchedule{course, dataset})
 		return dataset, err
@@ -271,4 +273,36 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 	})
 
 	return nil
+}
+
+// termToId takes a term string like "Fall 2017" and determines its
+// corresponding id (e.g: 201780)
+func termToId(term string) (int, error) {
+	split := strings.Split(term, " ")
+
+	season := split[0]
+	year, err := strconv.Atoi(split[1])
+	if err != nil {
+		return 0, errors.New(term + " is not a valid term")
+	}
+
+	var seasonSuffix int
+	switch season {
+	case "Spring":
+		seasonSuffix = 1
+	case "Summer":
+		seasonSuffix = 5
+	case "Fall":
+		seasonSuffix = 8
+	default:
+		return 0, errors.New(term + " is not a valid term")
+	}
+
+	// After Spring 2014, the season digit is in the 10s place
+	if year >= 2014 && term != "Spring 2014" {
+		seasonSuffix *= 10
+	}
+
+	id := year*100 + seasonSuffix
+	return id, nil
 }

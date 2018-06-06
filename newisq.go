@@ -4,19 +4,23 @@ import (
 	"os"
 	"github.com/gocolly/colly"
 	"log"
+	"time"
 )
 
 type Dataset map[Course][]Feature
 
-type MapperFunc func(Dataset) (Dataset, error)
-
-func (d *Dataset) Apply(mapperFunc MapperFunc) {
-	res, err := mapperFunc(*d)
+func (d *Dataset) Apply(mapFunc MapFunc) {
+	res, err := mapFunc(*d)
 	if err != nil {
 		panic(err)
 	}
 	*d = res
 }
+
+var (
+	cacheDir = "./.webcache"
+	dbFile   = "isqool.db"
+)
 
 func main() {
 	course := os.Args[1]
@@ -30,16 +34,16 @@ func main() {
 	data.Apply(ResolveIsq(c, course))
 	data.Apply(ResolveGrades(c, course))
 	data.Apply(ResolveSchedule(c, course))
-
 	log.Println("Found", len(data), "records")
 
-	// Save to the database
-	storage, err := NewSqliteStorage(dbFile)
-	if err != nil {
+	// Save all the data to the database
+	storage := NewSqliteStorage(dbFile)
+	if err := storage.Save(data); err != nil {
 		panic(err)
 	}
-	err = storage.Save(data)
-	if err != nil {
-		panic(err)
-	}
+}
+
+func timetrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s took %s", name, elapsed)
 }
