@@ -105,9 +105,8 @@ func persistDb(records []Record) error {
 	}
 	for _, record := range records {
 		course := &CourseEntity{Course: record.Course}
-		err := tx.Insert(course)
+		err := InsertIgnoringDupes(tx).Insert(course) // gracefully skip courses already in the DB
 		if err != nil {
-			// TODO: gracefully skip courses already in the DB
 			return err
 		}
 		// Assign foreign keys
@@ -128,7 +127,7 @@ func persistDb(records []Record) error {
 func initDbMap(db *sql.DB) *gorp.DbMap {
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
 	//dbmap.TraceOn("[gorp]", log.New(os.Stdout, "isqool: ", log.Lmicroseconds))
-	dbmap.AddTableWithName(Course{}, "courses").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
+	dbmap.AddTableWithName(CourseEntity{}, "courses").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
 	dbmap.AddTableWithName(IsqEntity{}, "isq")
 	dbmap.AddTableWithName(GradesEntity{}, "grades")
 	dbmap.AddTableWithName(ScheduleEntity{}, "sections")

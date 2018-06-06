@@ -101,6 +101,7 @@ func (d Dataset) Persist(tx Transaction) error {
 }
 
 type SqliteStorage struct {
+	db *sql.DB
 	dbmap *gorp.DbMap
 }
 
@@ -111,6 +112,7 @@ func NewSqliteStorage(file string) SqliteStorage {
 	if err != nil {
 		log.Panic("Unable to connect to database: ", err)
 	}
+	storage.db = db
 
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
 	dbmap.AddTableWithName(CourseEntity{}, "courses").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
@@ -122,8 +124,8 @@ func NewSqliteStorage(file string) SqliteStorage {
 	return storage
 }
 
-func (d SqliteStorage) Save(v Persistable) error {
-	tx, err := d.dbmap.Begin()
+func (s SqliteStorage) Save(v Persistable) error {
+	tx, err := s.dbmap.Begin()
 	if err != nil {
 		return err
 	}
@@ -132,4 +134,8 @@ func (d SqliteStorage) Save(v Persistable) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s SqliteStorage) Close() error {
+	return s.db.Close()
 }

@@ -4,7 +4,6 @@ import (
 	"os"
 	"github.com/gocolly/colly"
 	"log"
-	"time"
 )
 
 type Dataset map[Course][]Feature
@@ -41,9 +40,5 @@ func main() {
 	if err := storage.Save(data); err != nil {
 		panic(err)
 	}
-}
-
-func timetrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	log.Printf("%s took %s", name, elapsed)
+	storage.Close()
 }
