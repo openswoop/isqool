@@ -4,6 +4,8 @@ import (
 	"os"
 	"github.com/gocolly/colly"
 	"log"
+	"sort"
+	"strings"
 )
 
 type Dataset map[Course][]Feature
@@ -22,7 +24,8 @@ var (
 )
 
 func main() {
-	course := os.Args[1]
+	name := os.Args[1] // COT3100 or N00474503 etc.
+	isProfessor := strings.HasPrefix(name, "N")
 
 	// Set up colly
 	c := colly.NewCollector()
@@ -30,9 +33,14 @@ func main() {
 
 	// Scrape the data
 	data := Dataset{}
-	data.Apply(ResolveIsq(c, course))
-	data.Apply(ResolveGrades(c, course))
-	data.Apply(ResolveSchedule(c, course))
+	if isProfessor {
+		data.Apply(ResolveIsqByProfessor(c, name))
+		data.Apply(ResolveGradesByProfessor(c, name))
+	} else {
+		data.Apply(ResolveGrades(c, name))
+		data.Apply(ResolveIsq(c, name))
+		data.Apply(ResolveSchedule(c, name))
+	}
 	log.Println("Found", len(data), "records")
 
 	// Save all the data to the database
@@ -46,7 +54,7 @@ func main() {
 	// Also output to a csv
 	view := CsvRows{}
 	view.UnmarshalDataset(data)
-	fileName := course + ".csv"
-	SaveAsCsv(view, fileName)
-	log.Println("Wrote to file", fileName)
+	sort.Sort(sort.Reverse(view))
+	SaveAsCsv(view, name+".csv")
+	log.Println("Wrote to file", name+".csv")
 }

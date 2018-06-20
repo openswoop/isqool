@@ -10,7 +10,9 @@ import (
 	"log"
 	"github.com/gocolly/colly"
 	"bytes"
-)
+	)
+
+const BannerUrl = "https://banner.unf.edu/pls/nfpo/"
 
 type Unmarshaler interface {
 	UnmarshalDoc(doc *goquery.Document) error
@@ -45,16 +47,30 @@ func Scrape(c *colly.Collector, s Scrapable) error {
 
 type MapFunc func(Dataset) (Dataset, error)
 
-func ResolveIsq(c *colly.Collector, course string) MapFunc {
+func ResolveIsq(c *colly.Collector, professor string) MapFunc {
 	return func(dataset Dataset) (Dataset, error) {
-		err := Scrape(c, ScrapeIsq{course, dataset})
+		err := Scrape(c, ScrapeByCourse{ScrapeIsq{dataset}, professor})
+		return dataset, err
+	}
+}
+
+func ResolveIsqByProfessor(c *colly.Collector, professor string) MapFunc {
+	return func(dataset Dataset) (Dataset, error) {
+		err := Scrape(c, ScrapeByProfessor{ScrapeIsq{dataset}, professor})
 		return dataset, err
 	}
 }
 
 func ResolveGrades(c *colly.Collector, course string) MapFunc {
 	return func(dataset Dataset) (Dataset, error) {
-		err := Scrape(c, ScrapeGrades{course, dataset})
+		err := Scrape(c, ScrapeByCourse{ScrapeGrades{dataset}, course})
+		return dataset, err
+	}
+}
+
+func ResolveGradesByProfessor(c *colly.Collector, course string) MapFunc {
+	return func(dataset Dataset) (Dataset, error) {
+		err := Scrape(c, ScrapeByProfessor{ScrapeGrades{dataset}, course})
 		return dataset, err
 	}
 }
@@ -66,29 +82,65 @@ func ResolveSchedule(c *colly.Collector, course string) MapFunc {
 	}
 }
 
-type ScrapeIsq struct {
+type ScrapeByCourse struct {
+	Unmarshaler
 	course string
+}
+
+type ScrapeByProfessor struct {
+	Unmarshaler
+	professor string
+}
+
+func (i ScrapeByCourse) Urls() []string {
+	return []string{BannerUrl + "wksfwbs.p_course_isq_grade?pv_course_id=" + i.course}
+}
+
+func (i ScrapeByProfessor) Urls() []string {
+	return []string{BannerUrl + "wksfwbs.p_instructor_isq_grade?pv_instructor=" + i.professor}
+}
+
+type ScrapeIsq struct {
 	data Dataset
 }
 
 func (i ScrapeIsq) UnmarshalDoc(doc *goquery.Document) error {
 	// Select all rows except the two header rows
 	rows := doc.Find("table.datadisplaytable:nth-child(9) tr:nth-child(n+3)")
-	courseCode := doc.Find("table.datadisplaytable:nth-child(5) .dddefault").First().Text()
+
+	// Figure out if we're scraping a professor page or a course page
+	label := doc.Find("table.datadisplaytable:nth-child(5) .ddlabel").First().Text()
+	headerText := doc.Find("table.datadisplaytable:nth-child(5) .dddefault").First().Text()
+	hasVarietyCourses := label == "Instructor: "
 
 	// Fail on empty results
 	size := rows.Size()
 	if size == 0 {
-		return errors.New("No data found for course " + courseCode)
+		if hasVarietyCourses {
+			return errors.New("No grades found for instructor " + headerText)
+		} else {
+			return errors.New("No grades found for course " + headerText)
+		}
 	}
 
 	rows.Each(func(_ int, s *goquery.Selection) {
 		cells := s.Find("td")
+
+		// Professor pages have "Course ID" in place of "Instructor"
+		var courseID, instructor string
+		if hasVarietyCourses {
+			courseID = strings.TrimSpace(cells.Eq(2).Text())
+			instructor = getLastName(headerText)
+		} else {
+			courseID = headerText
+			instructor = strings.TrimSpace(cells.Eq(2).Text())
+		}
+
 		course := Course{
-			Name:       courseCode,
+			Name:       courseID,
 			Term:       cells.Eq(0).Text(),
 			Crn:        cells.Eq(1).Text(),
-			Instructor: strings.TrimSpace(cells.Eq(2).Text()),
+			Instructor: instructor,
 		}
 		data := Isq{
 			Enrolled:     strings.TrimSpace(cells.Eq(3).Text()),
@@ -107,24 +159,27 @@ func (i ScrapeIsq) UnmarshalDoc(doc *goquery.Document) error {
 	return nil
 }
 
-func (i ScrapeIsq) Urls() []string {
-	return []string{"https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id=" + i.course}
-}
-
 type ScrapeGrades struct {
-	course string
 	data Dataset
 }
 
 func (g ScrapeGrades) UnmarshalDoc(doc *goquery.Document) error {
 	// Select all rows from the "Grade Distribution Percentages" table except the headers
 	rows := doc.Find("table.datadisplaytable:nth-child(14) tr:nth-child(n+3)")
-	courseCode := doc.Find("table.datadisplaytable:nth-child(5) .dddefault").First().Text()
+
+	// Figure out if we're scraping a professor page or a course page
+	label := doc.Find("table.datadisplaytable:nth-child(5) .ddlabel").First().Text()
+	headerText := doc.Find("table.datadisplaytable:nth-child(5) .dddefault").First().Text()
+	hasVarietyCourses := label == "Instructor: "
 
 	// Fail on empty results
 	size := rows.Size()
 	if size == 0 {
-		return errors.New("No grades found for course " + courseCode)
+		if hasVarietyCourses {
+			return errors.New("No grades found for instructor " + headerText)
+		} else {
+			return errors.New("No grades found for course " + headerText)
+		}
 	}
 
 	rows.Each(func(_ int, s *goquery.Selection) {
@@ -143,11 +198,21 @@ func (g ScrapeGrades) UnmarshalDoc(doc *goquery.Document) error {
 		percentD := parse(cells.Eq(11).Text())
 		percentF := parse(cells.Eq(12).Text())
 
+		// Professor pages have "Course ID" in place of "Instructor"
+		var courseID, instructor string
+		if hasVarietyCourses {
+			courseID = strings.TrimSpace(cells.Eq(2).Text())
+			instructor = getLastName(headerText)
+		} else {
+			courseID = headerText
+			instructor = strings.TrimSpace(cells.Eq(2).Text())
+		}
+
 		course := Course{
-			Name:       courseCode,
+			Name:       courseID,
 			Term:       cells.Eq(0).Text(),
 			Crn:        cells.Eq(1).Text(),
-			Instructor: strings.TrimSpace(cells.Eq(2).Text()),
+			Instructor: instructor,
 		}
 		grades := Grades{
 			PercentA: percentA + percentAMinus,
@@ -161,10 +226,6 @@ func (g ScrapeGrades) UnmarshalDoc(doc *goquery.Document) error {
 	})
 
 	return nil
-}
-
-func (g ScrapeGrades) Urls() []string {
-	return []string{"https://banner.unf.edu/pls/nfpo/wksfwbs.p_course_isq_grade?pv_course_id=" + g.course}
 }
 
 type ScrapeSchedule struct {
@@ -187,7 +248,7 @@ func (sch ScrapeSchedule) Urls() []string {
 			continue
 		}
 		if _, found := termsFound[term]; !found {
-			urls = append(urls, urlBase + strconv.Itoa(term))
+			urls = append(urls, urlBase+strconv.Itoa(term))
 			termsFound[term] = true
 		}
 	}
@@ -227,9 +288,7 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 		data := rows.First().Find("td")
 
 		// Extract the instructor's last name
-		instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-]+) \(P\)`)
-		instructor := instructorR.FindStringSubmatch(data.Last().Text())[1]
-		course.Instructor = instructor
+		course.Instructor = getLastName(data.Last().Text())
 
 		// Extract the start time and class duration
 		var startTime, duration string
@@ -306,4 +365,9 @@ func termToId(term string) (int, error) {
 
 	id := year*100 + seasonSuffix
 	return id, nil
+}
+
+func getLastName(instructor string) string {
+	instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-]+)(?: \(P\))?$`)
+	return instructorR.FindStringSubmatch(instructor)[1]
 }

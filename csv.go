@@ -31,6 +31,20 @@ func (c *CsvRows) UnmarshalDataset(dataset Dataset) {
 	}
 }
 
+func (c CsvRows) Len() int {
+	return len(c)
+}
+
+func (c CsvRows) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
+}
+
+func (c CsvRows) Less(i, j int) bool {
+	aTerm, _ := termToId(c[i].Course.Term)
+	bTerm, _ := termToId(c[j].Course.Term)
+	return aTerm < bTerm
+}
+
 func SaveAsCsv(in interface{}, fileName string) {
 	file, err := os.Create(fileName)
 	if err != nil {
