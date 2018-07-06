@@ -47,16 +47,9 @@ func Scrape(c *colly.Collector, s Scrapable) error {
 
 type MapFunc func(Dataset) (Dataset, error)
 
-func ResolveIsq(c *colly.Collector, professor string) MapFunc {
+func ResolveIsq(c *colly.Collector, course string) MapFunc {
 	return func(dataset Dataset) (Dataset, error) {
-		err := Scrape(c, ScrapeByCourse{ScrapeIsq{dataset}, professor})
-		return dataset, err
-	}
-}
-
-func ResolveIsqByProfessor(c *colly.Collector, professor string) MapFunc {
-	return func(dataset Dataset) (Dataset, error) {
-		err := Scrape(c, ScrapeByProfessor{ScrapeIsq{dataset}, professor})
+		err := Scrape(c, ScrapeByCourse{ScrapeIsq{dataset}, course})
 		return dataset, err
 	}
 }
@@ -68,9 +61,16 @@ func ResolveGrades(c *colly.Collector, course string) MapFunc {
 	}
 }
 
-func ResolveGradesByProfessor(c *colly.Collector, course string) MapFunc {
+func ResolveIsqByProfessor(c *colly.Collector, professor string) MapFunc {
 	return func(dataset Dataset) (Dataset, error) {
-		err := Scrape(c, ScrapeByProfessor{ScrapeGrades{dataset}, course})
+		err := Scrape(c, ScrapeByProfessor{ScrapeIsq{dataset}, professor})
+		return dataset, err
+	}
+}
+
+func ResolveGradesByProfessor(c *colly.Collector, professor string) MapFunc {
+	return func(dataset Dataset) (Dataset, error) {
+		err := Scrape(c, ScrapeByProfessor{ScrapeGrades{dataset}, professor})
 		return dataset, err
 	}
 }

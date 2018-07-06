@@ -4,20 +4,38 @@
 [[projects]]
   name = "github.com/PuerkitoBio/goquery"
   packages = ["."]
-  revision = "e1271ee34c6a305e38566ecd27ae374944907ee9"
-  version = "v1.1.0"
+  revision = "dc2ec5c7ca4d9aae063b79b9f581dd3ea6afd2b2"
+  version = "v1.4.1"
+
+[[projects]]
+  name = "github.com/andybalholm/cascadia"
+  packages = ["."]
+  revision = "901648c87902174f774fac311d7f176f8647bdaa"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
-  name = "github.com/andybalholm/cascadia"
+  name = "github.com/antchfx/htmlquery"
   packages = ["."]
-  revision = "349dd0209470eabd9514242c688c403c0926d266"
+  revision = "b4407197cfe83ed32ff00763f84809f65b6417c1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/antchfx/xmlquery"
+  packages = ["."]
+  revision = "9188d8442369f50d972011092e34175d53e10476"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/antchfx/xpath"
+  packages = ["."]
+  revision = "077bca4d2caaf391ee780136adae00f59153dcd2"
 
 [[projects]]
   name = "github.com/go-gorp/gorp"
   packages = ["."]
-  revision = "4df78490a9aa9a78b9b02b0c913df8dc1954faee"
-  version = "2.1"
+  revision = "6032c66e0f5f155fd56216ed14cbbdd991034605"
+  version = "v2.1"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -31,29 +49,30 @@
     "util/runes",
     "util/strings"
   ]
-  revision = "bea32b9cd2d6f55753d94a28e959b13f0244797a"
-  version = "v0.2.2"
+  revision = "5ccd90ef52e1e632236f7326478d4faa74f99438"
+  version = "v0.2.3"
 
 [[projects]]
   branch = "master"
   name = "github.com/gocarina/gocsv"
   packages = ["."]
-  revision = "a7422e75c1caf4c04c1b413ad1cd857d3eebb85c"
+  revision = "a5c9099e2484f1551abb9433885e158610a25f4b"
 
 [[projects]]
   branch = "master"
   name = "github.com/gocolly/colly"
   packages = [
     ".",
-    "debug"
+    "debug",
+    "storage"
   ]
-  revision = "4d152951427ea081cfa00169114bcb98600e70bd"
+  revision = "f9e277f8f0b371c323de80d2b08cfcc7dadcbcd3"
 
 [[projects]]
-  branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/kennygrant/sanitize"
@@ -64,8 +83,8 @@
 [[projects]]
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
-  revision = "6c771bb9887719704b210e87e934f08be014bdb1"
-  version = "v1.6.0"
+  revision = "25ecb14adfc7543176f7d85291ec7dba82c6f7e4"
+  version = "v1.9.0"
 
 [[projects]]
   branch = "master"
@@ -88,10 +107,9 @@
     "html/atom",
     "html/charset"
   ]
-  revision = "d866cfc389cec985d6fda2859936a575a55a3ab6"
+  revision = "32a936f46389aa10549d60bd7833e54b01685d09"
 
 [[projects]]
-  branch = "master"
   name = "golang.org/x/text"
   packages = [
     "encoding",
@@ -112,7 +130,8 @@
     "transform",
     "unicode/cldr"
   ]
-  revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
+  revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
+  version = "v0.3.0"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -128,12 +147,12 @@
     "internal/urlfetch",
     "urlfetch"
   ]
-  revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
-  version = "v1.0.0"
+  revision = "b1f26356af11148e710935ed1ac8a7f5702c7612"
+  version = "v1.1.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7a5522f6f0c65eca5971e8660764e5781bd204316990cb79db9003b03a338810"
+  inputs-digest = "260ec670bcbe287741407f95a90a8df3ccd2670369a5759b834057c92fc32f25"
   solver-name = "gps-cdcl"
   solver-version = 1

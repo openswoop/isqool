@@ -30,6 +30,7 @@ func main() {
 	// Set up colly
 	c := colly.NewCollector()
 	c.CacheDir = cacheDir
+	c.AllowURLRevisit = true
 
 	// Scrape the data
 	data := Dataset{}
@@ -37,8 +38,8 @@ func main() {
 		data.Apply(ResolveIsqByProfessor(c, name))
 		data.Apply(ResolveGradesByProfessor(c, name))
 	} else {
-		data.Apply(ResolveGrades(c, name))
 		data.Apply(ResolveIsq(c, name))
+		data.Apply(ResolveGrades(c, name))
 		data.Apply(ResolveSchedule(c, name))
 	}
 	log.Println("Found", len(data), "records")
