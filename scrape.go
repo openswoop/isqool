@@ -10,7 +10,7 @@ import (
 	"log"
 	"github.com/gocolly/colly"
 	"bytes"
-	)
+)
 
 const BannerUrl = "https://banner.unf.edu/pls/nfpo/"
 
@@ -75,9 +75,9 @@ func ResolveGradesByProfessor(c *colly.Collector, professor string) MapFunc {
 	}
 }
 
-func ResolveSchedule(c *colly.Collector, course string) MapFunc {
+func ResolveSchedule(c *colly.Collector) MapFunc {
 	return func(dataset Dataset) (Dataset, error) {
-		err := Scrape(c, ScrapeSchedule{course, dataset})
+		err := Scrape(c, ScrapeSchedule{dataset})
 		return dataset, err
 	}
 }
@@ -229,27 +229,29 @@ func (g ScrapeGrades) UnmarshalDoc(doc *goquery.Document) error {
 }
 
 type ScrapeSchedule struct {
-	course string
-	data   Dataset
+	data Dataset
 }
 
 func (sch ScrapeSchedule) Urls() []string {
-	subject := sch.course[0:3]
-	courseId := sch.course[3:]
-	urlBase := "https://banner.unf.edu/pls/nfpo/bwckctlg.p_disp_listcrse?schd_in=" +
-		"&subj_in=" + subject + "&crse_in=" + courseId + "&term_in="
+	urlBase := "https://banner.unf.edu/pls/nfpo/bwckctlg.p_disp_listcrse?schd_in="
 
-	// Collect all the unique terms/semesters we need to query
-	termsFound := make(map[int]bool)
+	// Collect all the unique course/term combinations we need to query
+	seen := make(map[string]bool)
 	urls := make([]string, 0)
 	for id := range sch.data {
+		// Extract the parameters for the query
+		subject := id.Name[0:3]
+		courseId := id.Name[3:]
 		term, err := termToId(id.Term)
 		if err != nil {
 			continue
 		}
-		if _, found := termsFound[term]; !found {
-			urls = append(urls, urlBase+strconv.Itoa(term))
-			termsFound[term] = true
+
+		// Add the URL to the list if it's not already there
+		query := "&subj_in=" + subject + "&crse_in=" + courseId + "&term_in=" + strconv.Itoa(term)
+		if _, found := seen[query]; !found {
+			urls = append(urls, urlBase+query)
+			seen[query] = true
 		}
 	}
 
@@ -329,7 +331,11 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 			Room:      room,
 			Credits:   credits,
 		}
-		sch.data[course] = append(sch.data[course], schedule)
+
+		// Only append a schedule to existing records
+		if _, found := sch.data[course]; found {
+			sch.data[course] = append(sch.data[course], schedule)
+		}
 	})
 
 	return nil
