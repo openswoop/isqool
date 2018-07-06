@@ -5,7 +5,7 @@ import (
 	"github.com/gocolly/colly"
 	"log"
 	"sort"
-	"strings"
+	"regexp"
 )
 
 type Dataset map[Course][]Feature
@@ -25,7 +25,7 @@ var (
 
 func main() {
 	name := os.Args[1] // COT3100 or N00474503 etc.
-	isProfessor := strings.HasPrefix(name, "N")
+	isProfessor, _ := regexp.MatchString("N\\d{8}", name)
 
 	// Set up colly
 	c := colly.NewCollector()
