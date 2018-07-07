@@ -333,7 +333,7 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 		// Extract the building number and room number
 		var building, room string
 		locationText := strings.TrimSpace(data.Eq(3).Text())
-		if locationText != "Online" && locationText != "Off Main Campus" {
+		if locationText != "Online" && locationText != "Off Main Campus" && locationText != "TBA" {
 			locationR := regexp.MustCompile(`([\d]+[A-Z]?)-[a-zA-Z\s.&-]+(\d+)`)
 			location := locationR.FindStringSubmatch(locationText)
 			building = location[1]
@@ -397,6 +397,6 @@ func termToId(term string) (int, error) {
 }
 
 func getLastName(instructor string) string {
-	instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-]+)(?: \(P\))?$`)
+	instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-]+)(?: \(P\)(?:,.*)?)?$`)
 	return instructorR.FindStringSubmatch(instructor)[1]
 }
