@@ -37,10 +37,12 @@ func main() {
 	if isProfessor {
 		data.Apply(ResolveIsqByProfessor(c, name))
 		data.Apply(ResolveGradesByProfessor(c, name))
+		data.Apply(RemoveLabs())
 		data.Apply(ResolveSchedule(c))
 	} else {
 		data.Apply(ResolveIsq(c, name))
 		data.Apply(ResolveGrades(c, name))
+		data.Apply(RemoveLabs())
 		data.Apply(ResolveSchedule(c))
 	}
 	log.Println("Found", len(data), "records")

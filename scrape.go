@@ -82,6 +82,28 @@ func ResolveSchedule(c *colly.Collector) MapFunc {
 	}
 }
 
+func RemoveLabs() MapFunc {
+	return func(dataset Dataset) (Dataset, error) {
+		for course, features := range dataset {
+			var hasIsq, hasGrades bool
+			for _, feature := range features {
+				switch feature.(type) {
+				case Isq:
+					hasIsq = true
+				case Grades:
+					hasGrades = true
+				}
+			}
+
+			// Labs have professor ISQ scores but no grade distributions
+			if hasIsq && !hasGrades {
+				delete(dataset, course)
+			}
+		}
+		return dataset, nil
+	}
+}
+
 type ScrapeByCourse struct {
 	Unmarshaler
 	course string
@@ -265,6 +287,7 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 	tables.Each(func(_ int, s *goquery.Selection) {
 		rows := s.Find("td table.datadisplaytable tr").FilterFunction(func(_ int, s *goquery.Selection) bool {
 			// Ignore any laboratory information, for now
+			// TODO: store class type ("class" or "laboratory") as Schedule field
 			return strings.Contains(s.Find("td").First().Text(), "Class")
 		})
 
