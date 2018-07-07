@@ -26,3 +26,5 @@ vendor/
 *.csv
 *.db
 isqool
+
+!sample/*.csv
