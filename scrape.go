@@ -139,9 +139,9 @@ func (i ScrapeIsq) UnmarshalDoc(doc *goquery.Document) error {
 	size := rows.Size()
 	if size == 0 {
 		if hasVarietyCourses {
-			return errors.New("No grades found for instructor " + headerText)
+			return errors.New("No ISQs found for instructor " + headerText)
 		} else {
-			return errors.New("No grades found for course " + headerText)
+			return errors.New("No ISQs found for course " + headerText)
 		}
 	}
 

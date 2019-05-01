@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"github.com/docopt/docopt-go"
 	"github.com/gocolly/colly"
 	"log"
+	"os"
 	"regexp"
 	"sort"
 )
@@ -13,7 +15,7 @@ type Dataset map[Course][]Feature
 func (d *Dataset) Apply(mapFunc MapFunc) {
 	res, err := mapFunc(*d)
 	if err != nil {
-		panic(err)
+		_, _ = fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
 	*d = res
 }
