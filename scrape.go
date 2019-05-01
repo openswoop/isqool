@@ -1,15 +1,15 @@
 package main
 
 import (
-	"github.com/PuerkitoBio/goquery"
-	"errors"
-	"strings"
-	"strconv"
-	"time"
-	"regexp"
-	"log"
-	"github.com/gocolly/colly"
 	"bytes"
+	"errors"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/gocolly/colly"
+	"log"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const BannerUrl = "https://banner.unf.edu/pls/nfpo/"
@@ -37,7 +37,7 @@ func Scrape(c *colly.Collector, s Scrapable) error {
 
 	urls := s.Urls()
 	for _, url := range urls {
-		c.Visit(url)
+		_ = c.Visit(url)
 		if e != nil {
 			return e
 		}

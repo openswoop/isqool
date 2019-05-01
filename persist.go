@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/go-gorp/gorp"
 	"database/sql"
+	"github.com/go-gorp/gorp"
 	"github.com/mattn/go-sqlite3"
 	"log"
 )
@@ -30,7 +30,7 @@ func InsertIgnoringDupes(t Transaction) Transaction {
 		err := t.Insert(list...)
 		if sqliteError, ok := err.(sqlite3.Error); ok {
 			if sqliteError.ExtendedCode == sqlite3.ErrConstraintUnique {
-				return nil; // silently ignore
+				return nil // silently ignore
 			}
 		}
 		return err
@@ -101,7 +101,7 @@ func (d Dataset) Persist(tx Transaction) error {
 }
 
 type SqliteStorage struct {
-	db *sql.DB
+	db    *sql.DB
 	dbmap *gorp.DbMap
 }
 
@@ -119,7 +119,7 @@ func NewSqliteStorage(file string) SqliteStorage {
 	dbmap.AddTableWithName(IsqEntity{}, "isq")
 	dbmap.AddTableWithName(GradesEntity{}, "grades")
 	dbmap.AddTableWithName(ScheduleEntity{}, "sections")
-	dbmap.CreateTablesIfNotExists()
+	_ = dbmap.CreateTablesIfNotExists()
 	storage.dbmap = dbmap
 	return storage
 }

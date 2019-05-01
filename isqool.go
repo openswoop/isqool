@@ -1,11 +1,11 @@
 package main
 
 import (
-	"os"
 	"github.com/gocolly/colly"
 	"log"
-	"sort"
+	"os"
 	"regexp"
+	"sort"
 )
 
 type Dataset map[Course][]Feature
@@ -52,7 +52,7 @@ func main() {
 	if err := storage.Save(data); err != nil {
 		panic(err)
 	}
-	storage.Close()
+	_ = storage.Close()
 	log.Println("Saved to database", dbFile)
 
 	// Also output to a csv

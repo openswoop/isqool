@@ -1,8 +1,8 @@
 package main
 
 import (
-	"os"
 	"github.com/gocarina/gocsv"
+	"os"
 )
 
 type TotalView struct {
@@ -54,5 +54,5 @@ func SaveAsCsv(in interface{}, fileName string) {
 	if err != nil {
 		panic(err)
 	}
-	file.Close()
+	_ = file.Close()
 }
