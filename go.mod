@@ -7,6 +7,7 @@ require (
 	github.com/antchfx/xmlquery v0.0.0-20180524052823-9188d8442369 // indirect
 	github.com/antchfx/xpath v0.0.0-20180524052354-077bca4d2caa // indirect
 	github.com/apoydence/onpar v0.0.0-20181125144932-f2f06780798d // indirect
+	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/go-gorp/gorp v0.0.0-20180410155428-6032c66e0f5f
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
@@ -15,7 +16,7 @@ require (
 	github.com/golang/protobuf v1.1.0 // indirect
 	github.com/kennygrant/sanitize v1.2.3 // indirect
 	github.com/lib/pq v1.1.0 // indirect
-	github.com/mattn/go-sqlite3 v1.9.0
+	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/poy/onpar v0.0.0-20181125144932-f2f06780798d // indirect
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca // indirect
 	github.com/stretchr/testify v1.3.0 // indirect

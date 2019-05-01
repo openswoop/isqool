@@ -1,9 +1,9 @@
 package main
 
 import (
+	"github.com/docopt/docopt-go"
 	"github.com/gocolly/colly"
 	"log"
-	"os"
 	"regexp"
 	"sort"
 )
@@ -24,7 +24,19 @@ var (
 )
 
 func main() {
-	name := os.Args[1] // COT3100 or N00474503 etc.
+	usage := `ISQ Scraper.
+
+Usage:
+  isqool <name>
+  isqool -h | --help
+
+Options:
+  -h --help       Show this screen.
+  --version       Show version.`
+
+	opts, _ := docopt.ParseArgs(usage, nil, "1.0.0rc1")
+
+	name, _ := opts.String("<name>") // COT3100 or N00474503 etc.
 	isProfessor, _ := regexp.MatchString("N\\d{8}", name)
 
 	// Set up colly
@@ -37,14 +49,12 @@ func main() {
 	if isProfessor {
 		data.Apply(ResolveIsqByProfessor(c, name))
 		data.Apply(ResolveGradesByProfessor(c, name))
-		data.Apply(RemoveLabs())
-		data.Apply(ResolveSchedule(c))
 	} else {
 		data.Apply(ResolveIsq(c, name))
 		data.Apply(ResolveGrades(c, name))
-		data.Apply(RemoveLabs())
-		data.Apply(ResolveSchedule(c))
 	}
+	data.Apply(RemoveLabs())
+	data.Apply(ResolveSchedule(c))
 	log.Println("Found", len(data), "records")
 
 	// Save all the data to the database
