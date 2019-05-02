@@ -35,4 +35,5 @@ type Schedule struct {
 	Building  string `db:"building" csv:"building"`
 	Room      string `db:"room" csv:"room"`
 	Credits   string `db:"credits" csv:"credits"`
+	Title	  string `db:"-" csv:"title"`
 }

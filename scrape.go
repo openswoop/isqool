@@ -293,6 +293,8 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 
 		// Unique key for the map
 		headerData := strings.Split(s.Prev().Text(), " - ")
+		println(strings.TrimSpace(s.Prev().Text()))
+
 		course := Course{
 			Name: strings.Replace(headerData[2], " ", "", 1),
 			Term: term,
@@ -346,6 +348,10 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 		creditsR := regexp.MustCompile(`([\d])\.000 Credits`)
 		credits := creditsR.FindStringSubmatch(s.Text())[1]
 
+		// Extract the official name of the course
+		titleR := regexp.MustCompile(`^.*(?:\(\w+\)|H-)\s*`)
+		title := titleR.ReplaceAllString(strings.TrimSpace(headerData[0]), "")
+
 		schedule := Schedule{
 			StartTime: startTime,
 			Duration:  duration,
@@ -353,6 +359,7 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 			Building:  building,
 			Room:      room,
 			Credits:   credits,
+			Title:     title,
 		}
 
 		// Only append a schedule to existing records
