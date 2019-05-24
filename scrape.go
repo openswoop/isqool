@@ -293,7 +293,6 @@ func (sch ScrapeSchedule) UnmarshalDoc(doc *goquery.Document) error {
 
 		// Unique key for the map
 		headerData := strings.Split(s.Prev().Text(), " - ")
-		println(strings.TrimSpace(s.Prev().Text()))
 
 		course := Course{
 			Name: strings.Replace(headerData[2], " ", "", 1),
