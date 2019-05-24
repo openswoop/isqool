@@ -403,6 +403,6 @@ func termToId(term string) (int, error) {
 }
 
 func getLastName(instructor string) string {
-	instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-]+)(?: \(P\)(?:,.*)?)?$`)
+	instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-']+)(?: \(P\)(?:,.*)?)?$`)
 	return instructorR.FindStringSubmatch(instructor)[1]
 }
