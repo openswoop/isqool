@@ -1,6 +1,9 @@
 # ISQool
 
-*On-the-fly ISQ datasets for UNF courses*
+> On-the-fly ISQ datasets for UNF courses
+
+<p align="center"><img src="isqool.gif?raw=true"/></p>
+
 
 ---
 
