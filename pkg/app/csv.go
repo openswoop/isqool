@@ -1,30 +1,31 @@
-package main
+package app
 
 import (
 	"github.com/gocarina/gocsv"
+	"github.com/rothso/isqool/pkg/scrape"
 	"os"
 )
 
 type TotalView struct {
-	Course
-	Isq
-	Grades
-	Schedule
+	scrape.Course
+	scrape.Isq
+	scrape.Grades
+	scrape.Schedule
 }
 
 type CsvRows []TotalView
 
-func (c *CsvRows) UnmarshalDataset(dataset Dataset) {
+func (c *CsvRows) UnmarshalDataset(dataset scrape.Dataset) {
 	for course, features := range dataset {
 		view := TotalView{Course: course}
 		for _, feature := range features {
 			switch feature.(type) {
-			case Isq:
-				view.Isq = feature.(Isq)
-			case Grades:
-				view.Grades = feature.(Grades)
-			case Schedule:
-				view.Schedule = feature.(Schedule)
+			case scrape.Isq:
+				view.Isq = feature.(scrape.Isq)
+			case scrape.Grades:
+				view.Grades = feature.(scrape.Grades)
+			case scrape.Schedule:
+				view.Schedule = feature.(scrape.Schedule)
 			}
 		}
 		*c = append(*c, view)
@@ -40,8 +41,8 @@ func (c CsvRows) Swap(i, j int) {
 }
 
 func (c CsvRows) Less(i, j int) bool {
-	aTerm, _ := termToId(c[i].Course.Term)
-	bTerm, _ := termToId(c[j].Course.Term)
+	aTerm, _ := scrape.TermToId(c[i].Course.Term)
+	bTerm, _ := scrape.TermToId(c[j].Course.Term)
 	return aTerm < bTerm
 }
 

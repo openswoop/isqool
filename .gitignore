@@ -17,7 +17,6 @@
 # Vendor files
 vendor/
 
-
 # IntelliJ
 .idea/
 
@@ -25,7 +24,5 @@ vendor/
 .*/
 *.csv
 *.db
-isqool
 isqool.yml
-
 !sample/*.csv

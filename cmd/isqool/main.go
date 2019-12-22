@@ -1,24 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"github.com/docopt/docopt-go"
 	"github.com/gocolly/colly"
+	"github.com/rothso/isqool/pkg/app"
+	"github.com/rothso/isqool/pkg/scrape"
 	"log"
 	"os"
 	"regexp"
 	"sort"
 )
-
-type Dataset map[Course][]Feature
-
-func (d *Dataset) Apply(mapFunc MapFunc) {
-	res, err := mapFunc(*d)
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "error: %v\n", err)
-	}
-	*d = res
-}
 
 var (
 	cacheDir string
@@ -55,20 +46,20 @@ Options:
 	c.AllowURLRevisit = true
 
 	// Scrape the data
-	data := Dataset{}
+	data := scrape.Dataset{}
 	if isProfessor {
-		data.Apply(ResolveIsqByProfessor(c, name))
-		data.Apply(ResolveGradesByProfessor(c, name))
+		data.Apply(scrape.ResolveIsqByProfessor(c, name))
+		data.Apply(scrape.ResolveGradesByProfessor(c, name))
 	} else {
-		data.Apply(ResolveIsq(c, name))
-		data.Apply(ResolveGrades(c, name))
+		data.Apply(scrape.ResolveIsq(c, name))
+		data.Apply(scrape.ResolveGrades(c, name))
 	}
-	data.Apply(RemoveLabs())
-	data.Apply(ResolveSchedule(c))
+	data.Apply(scrape.RemoveLabs())
+	data.Apply(scrape.ResolveSchedule(c))
 	log.Println("Found", len(data), "records")
 
 	// Save all the data to the database
-	storage := NewSqliteStorage(dbFile)
+	storage := app.NewSqliteStorage(dbFile)
 	if err := storage.Save(data); err != nil {
 		panic(err)
 	}
@@ -76,9 +67,9 @@ Options:
 	log.Println("Saved to database", dbFile)
 
 	// Also output to a csv
-	view := CsvRows{}
+	view := app.CsvRows{}
 	view.UnmarshalDataset(data)
 	sort.Sort(sort.Reverse(view))
-	SaveAsCsv(view, name+".csv")
+	app.SaveAsCsv(view, name+".csv")
 	log.Println("Wrote to file", name+".csv")
 }
