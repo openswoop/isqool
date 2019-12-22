@@ -21,9 +21,17 @@ func (d *Dataset) Apply(mapFunc MapFunc) {
 }
 
 var (
-	cacheDir = "./.webcache"
+	cacheDir string
 	dbFile   = "isqool.db"
 )
+
+func init() {
+	userCacheDir, err := os.UserCacheDir()
+	if err != nil {
+		panic(err)
+	}
+	cacheDir = userCacheDir + "/isqool/web-cache"
+}
 
 func main() {
 	usage := `ISQ Scraper.
