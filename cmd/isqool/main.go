@@ -13,7 +13,7 @@ import (
 
 var (
 	cacheDir string
-	dbFile   = "isqool.db"
+	dbFile   string
 )
 
 func init() {
@@ -22,6 +22,7 @@ func init() {
 		panic(err)
 	}
 	cacheDir = userCacheDir + "/isqool/web-cache"
+	dbFile = userCacheDir + "/isqool/isqool.db"
 }
 
 func main() {
