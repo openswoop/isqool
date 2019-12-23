@@ -15,23 +15,6 @@ type TotalView struct {
 
 type CsvRows []TotalView
 
-func (c *CsvRows) UnmarshalDataset(dataset scrape.Dataset) {
-	for course, features := range dataset {
-		view := TotalView{Course: course}
-		for _, feature := range features {
-			switch feature.(type) {
-			case scrape.Isq:
-				view.Isq = feature.(scrape.Isq)
-			case scrape.Grades:
-				view.Grades = feature.(scrape.Grades)
-			case scrape.Schedule:
-				view.Schedule = feature.(scrape.Schedule)
-			}
-		}
-		*c = append(*c, view)
-	}
-}
-
 func (c CsvRows) Len() int {
 	return len(c)
 }

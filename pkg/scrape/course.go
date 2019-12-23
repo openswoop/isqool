@@ -9,11 +9,6 @@ type Course struct {
 	Instructor string `db:"instructor" csv:"instructor"`
 }
 
-type CourseEntity struct {
-	PrimaryKey
-	Course
-}
-
-func (c CourseEntity) Persist(tx persist.Transaction) error {
-	return tx.Insert(&c)
+func (course Course) Persist(tx persist.Transaction) error {
+	return tx.Insert(course)
 }

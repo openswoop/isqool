@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const bannerUrl = "https://banner.unf.edu/pls/nfpo/"
+
 // TermToId takes a term string like "Fall 2017" and determines its
 // corresponding id (e.g: 201780)
 func TermToId(term string) (int, error) {
@@ -37,6 +39,40 @@ func TermToId(term string) (int, error) {
 
 	id := year*100 + seasonSuffix
 	return id, nil
+}
+
+func CollectScheduleParams(isqs []Isq, grades []Grades) []ScheduleParams {
+	// Collect all the courses
+	var courses []Course
+	for _, isq := range isqs {
+		courses = append(courses, isq.Course)
+	}
+	for _, grade := range grades {
+		courses = append(courses, grade.Course)
+	}
+
+	// Find all the unique course/term combinations we need to query
+	var seen = make(map[ScheduleParams]bool)
+	var params []ScheduleParams
+
+	for _, course := range courses {
+		subject := course.Name[0:3]
+		courseNumber, err := strconv.Atoi(course.Name[3:])
+		if err != nil {
+			continue
+		}
+		term, err := TermToId(course.Term)
+		if err != nil {
+			continue
+		}
+
+		param := ScheduleParams{subject, courseNumber, term}
+		if _, found := seen[param]; !found {
+			params = append(params, param)
+			seen[param] = true
+		}
+	}
+	return params
 }
 
 func getLastName(instructor string) string {

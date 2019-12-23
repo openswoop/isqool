@@ -23,10 +23,9 @@ func NewSqliteStorage(file string) SqliteStorage {
 	storage.db = db
 
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
-	dbmap.AddTableWithName(scrape.CourseEntity{}, "courses").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
-	dbmap.AddTableWithName(scrape.IsqEntity{}, "isq")
-	dbmap.AddTableWithName(scrape.GradesEntity{}, "grades")
-	dbmap.AddTableWithName(scrape.ScheduleEntity{}, "sections")
+	dbmap.AddTableWithName(scrape.Isq{}, "isq").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
+	dbmap.AddTableWithName(scrape.Grades{}, "grades").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
+	dbmap.AddTableWithName(scrape.Schedule{}, "schedules").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
 	_ = dbmap.CreateTablesIfNotExists()
 	storage.dbmap = dbmap
 	return storage
