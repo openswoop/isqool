@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/docopt/docopt-go"
 	"github.com/gocolly/colly"
+	"github.com/rothso/isqool/pkg/app"
 	"github.com/rothso/isqool/pkg/scrape"
 	"log"
 	"os"
@@ -54,18 +55,27 @@ Options:
 	if err != nil {
 		panic(err)
 	}
-
-	// TODO: refactor the rest of the code
 	log.Println("Found", len(schedules), "records")
 
-	//// Save all the data to the database
-	//storage := app.NewSqliteStorage(dbFile)
-	//if err := storage.Save(data); err != nil {
-	//	panic(err)
-	//}
-	//_ = storage.Close()
-	//log.Println("Saved to database", dbFile)
-	//
+	// Save all the data to the database
+	storage := app.NewSqliteStorage(dbFile)
+	var insertionData []interface{}
+	for i := range isqs {
+		insertionData = append(insertionData, &isqs[i])
+	}
+	for i := range grades {
+		insertionData = append(insertionData, &grades[i])
+	}
+	for i := range schedules {
+		insertionData = append(insertionData, &schedules[i])
+	}
+	if err := storage.Save(insertionData); err != nil {
+		panic(err)
+	}
+	_ = storage.Close()
+	log.Println("Saved to database", dbFile)
+
+	// TODO: refactor the rest of the code
 	//// Also output to a csv
 	//view := app.CsvRows{}
 	//view.UnmarshalDataset(data)

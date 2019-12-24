@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
-	"github.com/rothso/isqool/pkg/persist"
 	"log"
 	"regexp"
 	"strconv"
@@ -131,8 +130,4 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]Schedule, erro
 	}
 
 	return schedules, nil
-}
-
-func (schedule Schedule) Persist(tx persist.Transaction) error {
-	return tx.Insert(schedule)
 }

@@ -3,7 +3,6 @@ package scrape
 import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
-	"github.com/rothso/isqool/pkg/persist"
 	"strconv"
 	"strings"
 )
@@ -135,12 +134,4 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Isq, 
 	}
 
 	return isqs, grades, c.Visit(url)
-}
-
-func (isq Isq) Persist(tx persist.Transaction) error {
-	return tx.Insert(isq)
-}
-
-func (grades Grades) Persist(tx persist.Transaction) error {
-	return tx.Insert(grades)
 }
