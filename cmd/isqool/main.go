@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/docopt/docopt-go"
 	"github.com/gocolly/colly"
+	"github.com/rothso/isqool/pkg/app"
 	"github.com/rothso/isqool/pkg/database"
 	"github.com/rothso/isqool/pkg/scrape"
 	"log"
@@ -71,11 +72,14 @@ Options:
 	_ = sqlite.Close()
 	log.Println("Saved to database", dbFile)
 
-	// TODO: refactor the rest of the code
-	//// Also output to a csv
-	//view := app.CsvRows{}
-	//view.UnmarshalDataset(data)
-	//sort.Sort(sort.Reverse(view))
-	//app.SaveAsCsv(view, name+".csv")
-	//log.Println("Wrote to file", name+".csv")
+	// Write to CSV
+	err = app.SaveReport(name, app.ReportInput{
+		Isqs:      isqs,
+		Grades:    grades,
+		Schedules: schedules,
+	})
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Wrote to file", name+".csv")
 }

@@ -7,7 +7,7 @@ import (
 
 type Database interface {
 	io.Closer
-	SaveIsqs([]scrape.Isq) error
-	SaveGrades([]scrape.Grades) error
-	SaveSchedules([]scrape.Schedule) error
+	SaveIsqs([]scrape.CourseIsq) error
+	SaveGrades([]scrape.CourseGrades) error
+	SaveSchedules([]scrape.CourseSchedule) error
 }

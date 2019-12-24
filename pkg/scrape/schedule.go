@@ -12,14 +12,18 @@ import (
 )
 
 type Schedule struct {
-	Course
 	StartTime string `db:"start_time" csv:"start_time"`
 	Duration  string `db:"duration" csv:"duration"`
 	Days      string `db:"days" csv:"days"`
 	Building  string `db:"building" csv:"building"`
 	Room      string `db:"room" csv:"room"`
 	Credits   string `db:"credits" csv:"credits"`
-	Title     string `db:"-" csv:"title"`
+	Title     string `db:"title" csv:"title"`
+}
+
+type CourseSchedule struct {
+	Course
+	Schedule
 }
 
 type ScheduleParams struct {
@@ -28,8 +32,8 @@ type ScheduleParams struct {
 	TermId       int
 }
 
-func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]Schedule, error) {
-	var schedules []Schedule
+func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]CourseSchedule, error) {
+	var schedules []CourseSchedule
 
 	// Collect the schedules
 	c.OnHTML("body", func(e *colly.HTMLElement) {
@@ -105,7 +109,6 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]Schedule, erro
 			title := titleR.ReplaceAllString(strings.TrimSpace(headerData[0]), "")
 
 			schedule := Schedule{
-				Course:    course,
 				StartTime: startTime,
 				Duration:  duration,
 				Days:      days,
@@ -114,7 +117,7 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]Schedule, erro
 				Credits:   credits,
 				Title:     title,
 			}
-			schedules = append(schedules, schedule)
+			schedules = append(schedules, CourseSchedule{course, schedule})
 		})
 	})
 

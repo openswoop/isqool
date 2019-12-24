@@ -8,7 +8,6 @@ import (
 )
 
 type Isq struct {
-	Course
 	Enrolled     string `db:"enrolled" csv:"enrolled"`
 	Responded    string `db:"responded" csv:"responded"`
 	ResponseRate string `db:"response_rate" csv:"response_rate"`
@@ -21,7 +20,6 @@ type Isq struct {
 }
 
 type Grades struct {
-	Course
 	PercentA float32 `db:"percent_a" csv:"A"`
 	PercentB float32 `db:"percent_b" csv:"B"`
 	PercentC float32 `db:"percent_c" csv:"C"`
@@ -30,9 +28,19 @@ type Grades struct {
 	Average  string  `db:"average_gpa" csv:"average_gpa"`
 }
 
-func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Isq, []Grades, error) {
-	var isqs []Isq
-	var grades []Grades
+type CourseIsq struct {
+	Course
+	Isq
+}
+
+type CourseGrades struct {
+	Course
+	Grades
+}
+
+func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]CourseIsq, []CourseGrades, error) {
+	var isqs []CourseIsq
+	var grades []CourseGrades
 
 	// Collect the ISQ table
 	c.OnHTML(".pagebodydiv", func(e *colly.HTMLElement) {
@@ -60,7 +68,6 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Isq, 
 				Instructor: instructor,
 			}
 			isq := Isq{
-				Course:       course,
 				Enrolled:     strings.TrimSpace(cells.Eq(3).Text()),
 				Responded:    strings.TrimSpace(cells.Eq(4).Text()),
 				ResponseRate: strings.TrimSpace(cells.Eq(5).Text()),
@@ -71,7 +78,7 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Isq, 
 				Percent1:     strings.TrimSpace(cells.Eq(10).Text()),
 				Rating:       strings.TrimSpace(cells.Eq(12).Text()),
 			}
-			isqs = append(isqs, isq)
+			isqs = append(isqs, CourseIsq{course, isq})
 		})
 	})
 
@@ -114,7 +121,6 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Isq, 
 				Instructor: instructor,
 			}
 			data := Grades{
-				Course:   course,
 				PercentA: percentA + percentAMinus,
 				PercentB: percentB + percentBMinus + percentBPlus,
 				PercentC: percentC + percentCPlus,
@@ -122,7 +128,7 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Isq, 
 				PercentF: percentF,
 				Average:  strings.TrimSpace(cells.Eq(14).Text()),
 			}
-			grades = append(grades, data)
+			grades = append(grades, CourseGrades{course, data})
 		})
 	})
 

@@ -25,9 +25,9 @@ func NewSqlite(file string) Sqlite {
 
 	// Initialize the database mapping, creating the tables if it's our first run
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
-	dbmap.AddTableWithName(scrape.Isq{}, "isq").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
-	dbmap.AddTableWithName(scrape.Grades{}, "grades").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
-	dbmap.AddTableWithName(scrape.Schedule{}, "schedules").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
+	dbmap.AddTableWithName(scrape.CourseIsq{}, "isq").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
+	dbmap.AddTableWithName(scrape.CourseGrades{}, "grades").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
+	dbmap.AddTableWithName(scrape.CourseSchedule{}, "schedules").SetUniqueTogether("Crn", "Term", "Instructor", "Name")
 	err = dbmap.CreateTablesIfNotExists()
 	if err != nil {
 		log.Panic("Unable to create tables: ", err)
@@ -37,7 +37,7 @@ func NewSqlite(file string) Sqlite {
 	return sqlite
 }
 
-func (s Sqlite) SaveIsqs(isqs []scrape.Isq) error {
+func (s Sqlite) SaveIsqs(isqs []scrape.CourseIsq) error {
 	var insertData = make([]interface{}, len(isqs))
 	for i := range isqs {
 		insertData = append(insertData, &isqs[i])
@@ -45,7 +45,7 @@ func (s Sqlite) SaveIsqs(isqs []scrape.Isq) error {
 	return s.save(insertData)
 }
 
-func (s Sqlite) SaveGrades(grades []scrape.Grades) error {
+func (s Sqlite) SaveGrades(grades []scrape.CourseGrades) error {
 	var insertData = make([]interface{}, len(grades))
 	for i := range grades {
 		insertData = append(insertData, &grades[i])
@@ -53,7 +53,7 @@ func (s Sqlite) SaveGrades(grades []scrape.Grades) error {
 	return s.save(insertData)
 }
 
-func (s Sqlite) SaveSchedules(schedules []scrape.Schedule) error {
+func (s Sqlite) SaveSchedules(schedules []scrape.CourseSchedule) error {
 	var insertData = make([]interface{}, len(schedules))
 	for i := range schedules {
 		insertData = append(insertData, &schedules[i])

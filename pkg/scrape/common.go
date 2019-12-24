@@ -41,7 +41,7 @@ func TermToId(term string) (int, error) {
 	return id, nil
 }
 
-func CollectScheduleParams(isqs []Isq, grades []Grades) []ScheduleParams {
+func CollectScheduleParams(isqs []CourseIsq, grades []CourseGrades) []ScheduleParams {
 	// Collect all the courses
 	var courses []Course
 	for _, isq := range isqs {
