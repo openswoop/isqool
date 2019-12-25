@@ -54,7 +54,7 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]CourseSchedule
 			course := Course{
 				Name: strings.Replace(headerData[2], " ", "", 1),
 				Term: term,
-				Crn:  headerData[1],
+				Crn:  atoi(headerData[1]),
 			}
 
 			if rows.Size() == 0 {

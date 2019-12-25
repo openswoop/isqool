@@ -79,3 +79,8 @@ func getLastName(instructor string) string {
 	instructorR := regexp.MustCompile(`\s((?:de |Von )?[\w-']+)(?: \(P\)(?:,.*)?)?$`)
 	return instructorR.FindStringSubmatch(instructor)[1]
 }
+
+func atoi(s string) int {
+	value, _ := strconv.Atoi(s)
+	return value
+}

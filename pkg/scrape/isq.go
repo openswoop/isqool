@@ -64,7 +64,7 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 			course := Course{
 				Name:       courseID,
 				Term:       cells.Eq(0).Text(),
-				Crn:        cells.Eq(1).Text(),
+				Crn:        atoi(cells.Eq(1).Text()),
 				Instructor: instructor,
 			}
 			isq := Isq{
@@ -117,7 +117,7 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 			course := Course{
 				Name:       courseID,
 				Term:       cells.Eq(0).Text(),
-				Crn:        cells.Eq(1).Text(),
+				Crn:        atoi(cells.Eq(1).Text()),
 				Instructor: instructor,
 			}
 			data := Grades{
