@@ -47,12 +47,12 @@ Options:
 	c.AllowURLRevisit = true
 
 	// Scrape the data
-	isqs, grades, err := scrape.GetIsqAndGrades(c, name, isProfessor)
+	isqs, grades, err := scrape.GetIsqAndGrades(c.Clone(), name, isProfessor)
 	if err != nil {
 		panic(err)
 	}
 	params := scrape.CollectScheduleParams(isqs, grades)
-	schedules, err := scrape.GetSchedules(c, params)
+	schedules, err := scrape.GetSchedules(c.Clone(), params)
 	if err != nil {
 		panic(err)
 	}
