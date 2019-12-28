@@ -1,6 +1,8 @@
 package scrape
 
 import (
+	"cloud.google.com/go/bigquery"
+	"cloud.google.com/go/civil"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
 	"strconv"
@@ -9,27 +11,27 @@ import (
 )
 
 type Meeting struct {
-	BeginDate time.Time
-	EndDate   time.Time
-	Days      string
-	BeginTime time.Time
-	EndTime   time.Time
 	Type      string
-	Building  string
-	Room      int
+	BeginDate civil.Date
+	EndDate   civil.Date
+	Days      bigquery.NullString
+	BeginTime bigquery.NullTime
+	EndTime   bigquery.NullTime
+	Building  bigquery.NullString
+	Room      bigquery.NullInt64
 }
 
 type DeptSchedule struct {
 	Course
-	Status      string
+	Status      bigquery.NullString
 	Title       string
 	InstructorN int
 	Credits     int
 	PartOfTerm  string
-	Meetings    []Meeting
+	Meetings    []Meeting `bigquery:",nullable"`
 	Campus      string
 	WaitCount   int
-	Approval    string
+	Approval    bigquery.NullString
 }
 
 func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule, error) {
@@ -53,34 +55,47 @@ func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule,
 			}
 
 			// Extract the begin and end date
-			var beginDate, endDate time.Time
+			var beginDate, endDate civil.Date
 			if strings.TrimSpace(cells.Eq(6-offset).Text()) != "" {
 				currYear := strings.Split(term, " ")[1]
-				beginDate, _ = time.Parse("01-02-2006", cells.Eq(6-offset).Text()+"-"+currYear)
-				endDate, _ = time.Parse("01-02-2006", cells.Eq(7-offset).Text()+"-"+currYear)
+				beginDateRaw, _ := time.Parse("01-02-2006", cells.Eq(6-offset).Text()+"-"+currYear)
+				endDateRaw, _ := time.Parse("01-02-2006", cells.Eq(7-offset).Text()+"-"+currYear)
+				beginDate = civil.DateOf(beginDateRaw)
+				endDate = civil.DateOf(endDateRaw)
 			}
 
 			// Extract the begin and end time
-			var beginTime, endTime time.Time
+			var beginTime, endTime bigquery.NullTime
 			if strings.TrimSpace(cells.Eq(9-offset).Text()) != "" {
-				beginTime, _ = time.Parse("03:04PM", cells.Eq(9-offset).Text())
-				endTime, _ = time.Parse("03:04PM", cells.Eq(10-offset).Text())
+				beginTimeRaw, _ := time.Parse("03:04PM", cells.Eq(9-offset).Text())
+				endTimeRaw, _ := time.Parse("03:04PM", cells.Eq(10-offset).Text())
+				beginTime = bigquery.NullTime{
+					Time:  civil.TimeOf(beginTimeRaw),
+					Valid: true,
+				}
+				endTime = bigquery.NullTime{
+					Time:  civil.TimeOf(endTimeRaw),
+					Valid: true,
+				}
 			}
 
 			// Extract the room number
-			var room int
+			var room bigquery.NullInt64
 			if strings.TrimSpace(cells.Eq(13-offset).Text()) != "" {
-				room = atoi(cells.Eq(13 - offset).Text())
+				room = bigquery.NullInt64{
+					Int64: int64(atoi(cells.Eq(13 - offset).Text())),
+					Valid: true,
+				}
 			}
 
 			meeting := Meeting{
+				Type:      strings.TrimSpace(cells.Eq(11 - offset).Text()),
 				BeginDate: beginDate,
 				EndDate:   endDate,
-				Days:      strings.Replace(cells.Eq(8-offset).Text(), " ", "", -1),
+				Days:      nullString(strings.Replace(cells.Eq(8-offset).Text(), " ", "", -1)),
 				BeginTime: beginTime,
 				EndTime:   endTime,
-				Type:      strings.TrimSpace(cells.Eq(11 - offset).Text()),
-				Building:  strings.TrimSpace(cells.Eq(12 - offset).Text()),
+				Building:  nullString(strings.TrimSpace(cells.Eq(12 - offset).Text())),
 				Room:      room,
 			}
 
@@ -108,11 +123,11 @@ func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule,
 					Name:       strings.TrimSpace(cells.Eq(2).Text()),
 					Term:       term,
 					Crn:        atoi(cells.Eq(1).Text()),
-					Instructor: instructor,
+					Instructor: nullString(instructor),
 				}
 				deptSchedule := DeptSchedule{
 					Course:      course,
-					Status:      strings.TrimSpace(cells.Eq(0).Text()),
+					Status:      nullString(strings.TrimSpace(cells.Eq(0).Text())),
 					Title:       strings.TrimSpace(cells.Eq(3).Text()),
 					InstructorN: instructorN,
 					Credits:     credits,
@@ -120,7 +135,7 @@ func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule,
 					Meetings:    meetings,
 					Campus:      strings.TrimSpace(cells.Eq(14).Text()),
 					WaitCount:   atoi(cells.Eq(15).Text()),
-					Approval:    strings.TrimSpace(cells.Eq(16).Text()),
+					Approval:    nullString(strings.TrimSpace(cells.Eq(16).Text())),
 				}
 				department = append(department, deptSchedule)
 			} else {

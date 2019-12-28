@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"cloud.google.com/go/bigquery"
 	"errors"
 	"regexp"
 	"strconv"
@@ -83,4 +84,15 @@ func getLastName(instructor string) string {
 func atoi(s string) int {
 	value, _ := strconv.Atoi(s)
 	return value
+}
+
+func nullString(value string) bigquery.NullString {
+	if value == "" {
+		return bigquery.NullString{}
+	} else {
+		return bigquery.NullString{
+			StringVal: value,
+			Valid:     true,
+		}
+	}
 }

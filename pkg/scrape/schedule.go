@@ -71,7 +71,7 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]CourseSchedule
 			data := rows.First().Find("td")
 
 			// Extract the instructor's last name
-			course.Instructor = getLastName(data.Last().Text())
+			course.Instructor = nullString(getLastName(data.Last().Text()))
 
 			// Extract the start time and class duration
 			var startTime, duration string
