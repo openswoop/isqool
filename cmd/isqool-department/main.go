@@ -50,10 +50,38 @@ func main() {
 		}
 	}
 
+	// Create a temp table
+	newArrivals := dataset.Table("departments_newarrivals")
+	if err := newArrivals.Create(ctx, &bigquery.TableMetadata{Schema: schema}); err != nil {
+		if !isDuplicateError(err) {
+			panic(fmt.Errorf("failed to create arrivals table: %v", err))
+		}
+	}
+
 	// Upload data
-	u := table.Inserter()
+	u := newArrivals.Inserter()
 	if err := u.Put(ctx, dept); err != nil {
 		panic(fmt.Errorf("failed to insert rows: %v", err))
+	}
+
+	// Merge data
+	q := client.Query(`
+		MERGE isqool.departments t
+		USING isqool.departments_newarrivals s
+		ON t.course = s.course
+		  AND t.term = s.term
+		  AND t.crn = s.crn
+		  AND (t.instructor = s.instructor
+        	OR IFNULL(t.instructor, s.instructor) IS NULL)
+		WHEN NOT MATCHED THEN
+		  INSERT ROW`)
+	if _, err := q.Run(ctx); err != nil {
+		panic(fmt.Errorf("failed to execute query: %v", err))
+	}
+
+	// Delete temp table
+	if err := newArrivals.Delete(ctx); err != nil {
+		panic(fmt.Errorf("failed to delete arrivals table: %v", err))
 	}
 
 	fmt.Println("Done.")
