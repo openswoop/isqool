@@ -25,7 +25,7 @@ type DeptSchedule struct {
 	Course
 	Status      bigquery.NullString `bigquery:"status"`
 	Title       string              `bigquery:"title"`
-	InstructorN int                 `bigquery:"instructor_n"`
+	InstructorN bigquery.NullInt64  `bigquery:"instructor_n"`
 	Credits     int                 `bigquery:"credits"`
 	PartOfTerm  string              `bigquery:"part_of_term"`
 	Meetings    []Meeting           `bigquery:"meetings"`
@@ -103,10 +103,13 @@ func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule,
 			if !continuation {
 				// Extract the instructor's n#
 				instructor := strings.TrimSpace(cells.Eq(17).Text())
-				var instructorN int
+				var instructorN bigquery.NullInt64
 				if instructor != "" {
 					link, _ := cells.Eq(17).Find("a").First().Attr("href")
-					instructorN = atoi(strings.Split(link, "=N")[1])
+					instructorN = bigquery.NullInt64{
+						Int64: int64(atoi(strings.Split(link, "=N")[1])),
+						Valid: true,
+					}
 				}
 
 				// Extract the number of credits the course is worth
