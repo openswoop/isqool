@@ -11,27 +11,27 @@ import (
 )
 
 type Meeting struct {
-	Type      string
-	BeginDate civil.Date
-	EndDate   civil.Date
-	Days      bigquery.NullString
-	BeginTime bigquery.NullTime
-	EndTime   bigquery.NullTime
-	Building  bigquery.NullString
-	Room      bigquery.NullInt64
+	Type      string              `bigquery:"type"`
+	BeginDate civil.Date          `bigquery:"begin_date"`
+	EndDate   civil.Date          `bigquery:"end_date"`
+	Days      bigquery.NullString `bigquery:"days"`
+	BeginTime bigquery.NullTime   `bigquery:"begin_time"`
+	EndTime   bigquery.NullTime   `bigquery:"end_time"`
+	Building  bigquery.NullString `bigquery:"building"`
+	Room      bigquery.NullInt64  `bigquery:"room"`
 }
 
 type DeptSchedule struct {
 	Course
-	Status      bigquery.NullString
-	Title       string
-	InstructorN int
-	Credits     int
-	PartOfTerm  string
-	Meetings    []Meeting `bigquery:",nullable"`
-	Campus      string
-	WaitCount   int
-	Approval    bigquery.NullString
+	Status      bigquery.NullString `bigquery:"status"`
+	Title       string              `bigquery:"title"`
+	InstructorN int                 `bigquery:"instructor_n"`
+	Credits     int                 `bigquery:"credits"`
+	PartOfTerm  string              `bigquery:"part_of_term"`
+	Meetings    []Meeting           `bigquery:"meetings"`
+	Campus      string              `bigquery:"campus"`
+	WaitCount   int                 `bigquery:"wait_count"`
+	Approval    bigquery.NullString `bigquery:"approval"`
 }
 
 func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule, error) {
