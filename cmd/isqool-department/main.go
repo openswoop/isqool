@@ -24,14 +24,14 @@ func main() {
 	c.CacheDir = userCacheDir + "/isqool/web-cache"
 	c.AllowURLRevisit = true
 
-	dept, err := scrape.GetDepartment(c, "Fall 2011", 6502)
+	deptTable, err := scrape.GetDepartment(c, "Spring 2019", 6502)
 	if err != nil {
 		panic(err)
 	}
 
 	seen := make(map[string]bool)
 	var courses []string
-	for _, row := range dept {
+	for _, row := range deptTable {
 		if _, found := seen[row.Name]; !found {
 			courses = append(courses, row.Name)
 			seen[row.Name] = true
@@ -47,7 +47,6 @@ func main() {
 			panic(err)
 		}
 
-		// TODO: store this data in BigQuery
 		isqTable = append(isqTable, isqs...)
 		gradesTable = append(gradesTable, grades...)
 	}
@@ -58,9 +57,15 @@ func main() {
 		panic(fmt.Errorf("failed to connect to bigquery: %v", err))
 	}
 
-	// Insert (merge) the department schedule
-	if err := bq.InsertDepartments(dept); err != nil {
+	// Insert (merge) the department schedule, isqs, and grades
+	if err := bq.InsertDepartments(deptTable); err != nil {
 		panic(fmt.Errorf("failed to insert department schedule: %v", err))
+	}
+	if err := bq.InsertISQs(isqTable); err != nil {
+		panic(fmt.Errorf("failed to insert isqs: %v", err))
+	}
+	if err := bq.InsertGrades(gradesTable); err != nil {
+		panic(fmt.Errorf("failed to insert grades: %v", err))
 	}
 
 	fmt.Println("Done.")

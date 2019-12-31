@@ -83,6 +83,15 @@ func atoi(s string) int {
 	return value
 }
 
+func parseFloat(s string) float64 {
+	float, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return float
+}
+
+func round(i float64) float64 {
+	return float64(int(i*100)) / 100
+}
+
 func nullString(value string) bigquery.NullString {
 	if value == "" {
 		return bigquery.NullString{}
@@ -92,14 +101,4 @@ func nullString(value string) bigquery.NullString {
 			Valid:     true,
 		}
 	}
-}
-
-// Wrapper for specifying CSV representation
-type NullString bigquery.NullString
-
-func (n NullString) MarshalCSV() (string, error) {
-	if !n.Valid {
-		return "", nil
-	}
-	return n.StringVal, nil
 }

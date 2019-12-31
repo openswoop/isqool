@@ -3,29 +3,28 @@ package scrape
 import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
-	"strconv"
 	"strings"
 )
 
 type Isq struct {
-	Enrolled     string `db:"enrolled" csv:"enrolled"`
-	Responded    string `db:"responded" csv:"responded"`
-	ResponseRate string `db:"response_rate" csv:"response_rate"`
-	Percent5     string `db:"percent_5" csv:"percent_5"`
-	Percent4     string `db:"percent_4" csv:"percent_4"`
-	Percent3     string `db:"percent_3" csv:"percent_3"`
-	Percent2     string `db:"percent_2" csv:"percent_2"`
-	Percent1     string `db:"percent_1" csv:"percent_1"`
-	Rating       string `db:"rating" csv:"rating"`
+	Enrolled     int     `bigquery:"enrolled" db:"enrolled" csv:"enrolled"`
+	Responded    int     `bigquery:"responded" db:"responded" csv:"responded"`
+	ResponseRate float64 `bigquery:"response_rate" db:"response_rate" csv:"response_rate"`
+	Percent5     float64 `bigquery:"percent_5" db:"percent_5" csv:"percent_5"`
+	Percent4     float64 `bigquery:"percent_4" db:"percent_4" csv:"percent_4"`
+	Percent3     float64 `bigquery:"percent_3" db:"percent_3" csv:"percent_3"`
+	Percent2     float64 `bigquery:"percent_2" db:"percent_2" csv:"percent_2"`
+	Percent1     float64 `bigquery:"percent_1" db:"percent_1" csv:"percent_1"`
+	Rating       float64 `bigquery:"rating" db:"rating" csv:"rating"`
 }
 
 type Grades struct {
-	PercentA float64 `db:"percent_a" csv:"A"`
-	PercentB float64 `db:"percent_b" csv:"B"`
-	PercentC float64 `db:"percent_c" csv:"C"`
-	PercentD float64 `db:"percent_d" csv:"D"`
-	PercentF float64 `db:"percent_e" csv:"F"`
-	Average  string  `db:"average_gpa" csv:"average_gpa"`
+	PercentA float64 `bigquery:"percent_a" db:"percent_a" csv:"A"`
+	PercentB float64 `bigquery:"percent_b" db:"percent_b" csv:"B"`
+	PercentC float64 `bigquery:"percent_c" db:"percent_c" csv:"C"`
+	PercentD float64 `bigquery:"percent_d" db:"percent_d" csv:"D"`
+	PercentF float64 `bigquery:"percent_e" db:"percent_e" csv:"F"`
+	Average  float64 `bigquery:"average_gpa" db:"average_gpa" csv:"average_gpa"`
 }
 
 type CourseIsq struct {
@@ -68,15 +67,15 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 				Instructor: nullString(instructor),
 			}
 			isq := Isq{
-				Enrolled:     strings.TrimSpace(cells.Eq(3).Text()),
-				Responded:    strings.TrimSpace(cells.Eq(4).Text()),
-				ResponseRate: strings.TrimSpace(cells.Eq(5).Text()),
-				Percent5:     strings.TrimSpace(cells.Eq(6).Text()),
-				Percent4:     strings.TrimSpace(cells.Eq(7).Text()),
-				Percent3:     strings.TrimSpace(cells.Eq(8).Text()),
-				Percent2:     strings.TrimSpace(cells.Eq(9).Text()),
-				Percent1:     strings.TrimSpace(cells.Eq(10).Text()),
-				Rating:       strings.TrimSpace(cells.Eq(12).Text()),
+				Enrolled:     atoi(strings.TrimSpace(cells.Eq(3).Text())),
+				Responded:    atoi(strings.TrimSpace(cells.Eq(4).Text())),
+				ResponseRate: parseFloat(cells.Eq(5).Text()),
+				Percent5:     parseFloat(cells.Eq(6).Text()),
+				Percent4:     parseFloat(cells.Eq(7).Text()),
+				Percent3:     parseFloat(cells.Eq(8).Text()),
+				Percent2:     parseFloat(cells.Eq(9).Text()),
+				Percent1:     parseFloat(cells.Eq(10).Text()),
+				Rating:       parseFloat(cells.Eq(12).Text()),
 			}
 			isqs = append(isqs, CourseIsq{course, isq})
 		})
@@ -90,19 +89,16 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 
 		rows.Each(func(_ int, s *goquery.Selection) {
 			cells := s.Find("td")
-			parse := func(s string) float64 {
-				float, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
-				return float
-			}
-			percentA := parse(cells.Eq(4).Text())
-			percentAMinus := parse(cells.Eq(5).Text())
-			percentBPlus := parse(cells.Eq(6).Text())
-			percentB := parse(cells.Eq(7).Text())
-			percentBMinus := parse(cells.Eq(8).Text())
-			percentCPlus := parse(cells.Eq(9).Text())
-			percentC := parse(cells.Eq(10).Text())
-			percentD := parse(cells.Eq(11).Text())
-			percentF := parse(cells.Eq(12).Text())
+			percentA := parseFloat(cells.Eq(4).Text())
+			percentAMinus := parseFloat(cells.Eq(5).Text())
+			percentBPlus := parseFloat(cells.Eq(6).Text())
+			percentB := parseFloat(cells.Eq(7).Text())
+			percentBMinus := parseFloat(cells.Eq(8).Text())
+			percentCPlus := parseFloat(cells.Eq(9).Text())
+			percentC := parseFloat(cells.Eq(10).Text())
+			percentD := parseFloat(cells.Eq(11).Text())
+			percentF := parseFloat(cells.Eq(12).Text())
+			average := parseFloat(cells.Eq(14).Text())
 
 			// Professor pages have "Course ID" in place of "Instructor"
 			var courseID, instructor string
@@ -121,12 +117,12 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 				Instructor: nullString(instructor),
 			}
 			data := Grades{
-				PercentA: percentA + percentAMinus,
-				PercentB: percentB + percentBMinus + percentBPlus,
-				PercentC: percentC + percentCPlus,
+				PercentA: round(percentA + percentAMinus),
+				PercentB: round(percentB + percentBMinus + percentBPlus),
+				PercentC: round(percentC + percentCPlus),
 				PercentD: percentD,
 				PercentF: percentF,
-				Average:  strings.TrimSpace(cells.Eq(14).Text()),
+				Average:  average,
 			}
 			grades = append(grades, CourseGrades{course, data})
 		})

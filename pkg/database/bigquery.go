@@ -38,14 +38,26 @@ func NewBigQuery(projectID, datasetID string) (BigQuery, error) {
 }
 
 func (bq BigQuery) InsertDepartments(departments []scrape.DeptSchedule) error {
+	return bq.insert(scrape.DeptSchedule{}, "departments", departments)
+}
+
+func (bq BigQuery) InsertISQs(isqs []scrape.CourseIsq) error {
+	return bq.insert(scrape.CourseIsq{}, "isqs", isqs)
+}
+
+func (bq BigQuery) InsertGrades(grades []scrape.CourseGrades) error {
+	return bq.insert(scrape.CourseGrades{}, "grades", grades)
+}
+
+func (bq BigQuery) insert(st interface{}, tableName string, data interface{}) error {
 	// Infer the table schema
-	schema, err := bigquery.InferSchema(scrape.DeptSchedule{})
+	schema, err := bigquery.InferSchema(st)
 	if err != nil {
 		return fmt.Errorf("failed to infer schema: %v", err)
 	}
 
 	// Get a reference to the table
-	table := bq.dataset.Table("departments")
+	table := bq.dataset.Table(tableName)
 	if err := table.Create(bq.ctx, &bigquery.TableMetadata{Schema: schema}); err != nil {
 		if !isDuplicateError(err) {
 			return fmt.Errorf("failed to create table: %v", err)
@@ -54,8 +66,8 @@ func (bq BigQuery) InsertDepartments(departments []scrape.DeptSchedule) error {
 
 	// Create a temp table
 	// Uses a different table each time: https://stackoverflow.com/a/51998193/5623874
-	tempSuffix := strconv.Itoa(int(time.Now().Unix()))
-	newArrivals := bq.dataset.Table("departments_" + tempSuffix)
+	tempName := tableName + "_" + strconv.Itoa(int(time.Now().Unix()))
+	newArrivals := bq.dataset.Table(tempName)
 	if err := newArrivals.Create(bq.ctx, &bigquery.TableMetadata{Schema: schema}); err != nil {
 		if !isDuplicateError(err) {
 			return fmt.Errorf("failed to create arrivals table: %v", err)
@@ -64,14 +76,14 @@ func (bq BigQuery) InsertDepartments(departments []scrape.DeptSchedule) error {
 
 	// Upload data
 	u := newArrivals.Inserter()
-	if err := u.Put(bq.ctx, departments); err != nil {
+	if err := u.Put(bq.ctx, data); err != nil {
 		return fmt.Errorf("failed to insert rows: %v", err)
 	}
 
 	// Merge data
 	q := bq.client.Query(`
-		MERGE isqool.departments t
-		USING isqool.departments_` + tempSuffix + ` s
+		MERGE isqool.` + tableName + ` t
+		USING isqool.` + tempName + ` s
 		ON t.course = s.course
 		  AND t.term = s.term
 		  AND t.crn = s.crn
