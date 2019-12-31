@@ -24,7 +24,7 @@ func main() {
 	c.CacheDir = userCacheDir + "/isqool/web-cache"
 	c.AllowURLRevisit = true
 
-	dept, err := scrape.GetDepartment(c, "Spring 2019", 6502)
+	dept, err := scrape.GetDepartment(c, "Fall 2011", 6502)
 	if err != nil {
 		panic(err)
 	}

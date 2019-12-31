@@ -65,7 +65,7 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 				Name:       courseID,
 				Term:       cells.Eq(0).Text(),
 				Crn:        atoi(cells.Eq(1).Text()),
-				Instructor: NullString(nullString(instructor)),
+				Instructor: nullString(instructor),
 			}
 			isq := Isq{
 				Enrolled:     strings.TrimSpace(cells.Eq(3).Text()),
@@ -118,7 +118,7 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 				Name:       courseID,
 				Term:       cells.Eq(0).Text(),
 				Crn:        atoi(cells.Eq(1).Text()),
-				Instructor: NullString(nullString(instructor)),
+				Instructor: nullString(instructor),
 			}
 			data := Grades{
 				PercentA: percentA + percentAMinus,

@@ -126,7 +126,7 @@ func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule,
 					Name:       strings.TrimSpace(cells.Eq(2).Text()),
 					Term:       term,
 					Crn:        atoi(cells.Eq(1).Text()),
-					Instructor: NullString(nullString(instructor)),
+					Instructor: nullString(instructor),
 				}
 				deptSchedule := DeptSchedule{
 					Course:      course,

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/rothso/isqool/pkg/scrape"
 	"google.golang.org/api/googleapi"
+	"strconv"
+	"time"
 )
 
 type BigQuery struct {
@@ -51,8 +53,9 @@ func (bq BigQuery) InsertDepartments(departments []scrape.DeptSchedule) error {
 	}
 
 	// Create a temp table
-	// TODO: Use a different table each time: https://stackoverflow.com/a/51998193/5623874
-	newArrivals := bq.dataset.Table("departments_newarrivals")
+	// Uses a different table each time: https://stackoverflow.com/a/51998193/5623874
+	tempSuffix := strconv.Itoa(int(time.Now().Unix()))
+	newArrivals := bq.dataset.Table("departments_" + tempSuffix)
 	if err := newArrivals.Create(bq.ctx, &bigquery.TableMetadata{Schema: schema}); err != nil {
 		if !isDuplicateError(err) {
 			return fmt.Errorf("failed to create arrivals table: %v", err)
@@ -68,7 +71,7 @@ func (bq BigQuery) InsertDepartments(departments []scrape.DeptSchedule) error {
 	// Merge data
 	q := bq.client.Query(`
 		MERGE isqool.departments t
-		USING isqool.departments_newarrivals s
+		USING isqool.departments_` + tempSuffix + ` s
 		ON t.course = s.course
 		  AND t.term = s.term
 		  AND t.crn = s.crn

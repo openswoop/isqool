@@ -7,8 +7,23 @@ import (
 	"sort"
 )
 
+type CsvCourse struct {
+	Name       string `csv:"course"`
+	Term       string `csv:"term"`
+	Crn        int    `csv:"crn"`
+	Instructor string `csv:"instructor"`
+}
+
+func toCsvCourse(c scrape.Course) CsvCourse {
+	instructor := ""
+	if c.Instructor.Valid {
+		instructor = c.Instructor.StringVal
+	}
+	return CsvCourse{c.Name, c.Term, c.Crn, instructor}
+}
+
 type reportView struct {
-	scrape.Course
+	CsvCourse
 	scrape.Isq
 	scrape.Grades
 	scrape.Schedule
@@ -38,10 +53,10 @@ func SaveReport(name string, r ReportInput) error {
 	var rows report
 	for course, isq := range courseToIsq {
 		rows = append(rows, reportView{
-			Course:   course,
-			Isq:      isq,
-			Grades:   courseToGrades[course],
-			Schedule: courseToSchedules[course],
+			CsvCourse: toCsvCourse(course),
+			Isq:       isq,
+			Grades:    courseToGrades[course],
+			Schedule:  courseToSchedules[course],
 		})
 	}
 
@@ -60,8 +75,8 @@ func (r report) Swap(i, j int) {
 }
 
 func (r report) Less(i, j int) bool {
-	aTerm, _ := scrape.TermToId(r[i].Course.Term)
-	bTerm, _ := scrape.TermToId(r[j].Course.Term)
+	aTerm, _ := scrape.TermToId(r[i].CsvCourse.Term)
+	bTerm, _ := scrape.TermToId(r[j].CsvCourse.Term)
 	return aTerm < bTerm
 }
 
