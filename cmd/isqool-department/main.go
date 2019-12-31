@@ -7,6 +7,7 @@ import (
 	"github.com/gocolly/colly"
 	"github.com/rothso/isqool/pkg/scrape"
 	"google.golang.org/api/googleapi"
+	"os"
 )
 
 var (
@@ -15,13 +16,48 @@ var (
 )
 
 func main() {
+	userCacheDir, err := os.UserCacheDir()
+	if err != nil {
+		panic(err)
+	}
+
 	// Set up colly
 	c := colly.NewCollector()
+	c.CacheDir = userCacheDir + "/isqool/web-cache"
 	c.AllowURLRevisit = true
 
 	dept, err := scrape.GetDepartment(c, "Spring 2019", 6502)
 	if err != nil {
 		panic(err)
+	}
+
+	seen := make(map[string]bool)
+	var courses []string
+	for _, row := range dept {
+		if _, found := seen[row.Name]; !found {
+			courses = append(courses, row.Name)
+			seen[row.Name] = true
+		}
+	}
+
+	var isqTable []scrape.CourseIsq
+	var gradesTable []scrape.CourseGrades
+	var scheduleTable []scrape.CourseSchedule
+
+	for _, course := range courses {
+		isqs, grades, err := scrape.GetIsqAndGrades(c.Clone(), course, false)
+		if err != nil {
+			panic(err)
+		}
+		params := scrape.CollectScheduleParams(isqs, grades)
+		schedules, err := scrape.GetSchedules(c.Clone(), params)
+		if err != nil {
+			panic(err)
+		}
+
+		isqTable = append(isqTable, isqs...)
+		gradesTable = append(gradesTable, grades...)
+		scheduleTable = append(scheduleTable, schedules...)
 	}
 
 	// Set up BigQuery
