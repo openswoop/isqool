@@ -28,7 +28,7 @@ type CourseSchedule struct {
 
 type ScheduleParams struct {
 	Subject      string
-	CourseNumber int
+	CourseNumber string
 	TermId       int
 }
 
@@ -71,7 +71,7 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]CourseSchedule
 			data := rows.First().Find("td")
 
 			// Extract the instructor's last name
-			course.Instructor = nullString(getLastName(data.Last().Text()))
+			course.Instructor = NullString(nullString(getLastName(data.Last().Text())))
 
 			// Extract the start time and class duration
 			var startTime, duration string
@@ -124,7 +124,7 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]CourseSchedule
 	var err error
 	for _, p := range params {
 		url := fmt.Sprintf(
-			"%vbwckctlg.p_disp_listcrse?schd_in=&subj_in=%v&crse_in=%d&term_in=%d",
+			"%vbwckctlg.p_disp_listcrse?schd_in=&subj_in=%v&crse_in=%v&term_in=%d",
 			bannerUrl, p.Subject, p.CourseNumber, p.TermId)
 		err = c.Visit(url)
 		if err != nil {

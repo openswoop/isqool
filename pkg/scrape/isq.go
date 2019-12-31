@@ -20,11 +20,11 @@ type Isq struct {
 }
 
 type Grades struct {
-	PercentA float32 `db:"percent_a" csv:"A"`
-	PercentB float32 `db:"percent_b" csv:"B"`
-	PercentC float32 `db:"percent_c" csv:"C"`
-	PercentD float32 `db:"percent_d" csv:"D"`
-	PercentF float32 `db:"percent_e" csv:"F"`
+	PercentA float64 `db:"percent_a" csv:"A"`
+	PercentB float64 `db:"percent_b" csv:"B"`
+	PercentC float64 `db:"percent_c" csv:"C"`
+	PercentD float64 `db:"percent_d" csv:"D"`
+	PercentF float64 `db:"percent_e" csv:"F"`
 	Average  string  `db:"average_gpa" csv:"average_gpa"`
 }
 
@@ -65,7 +65,7 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 				Name:       courseID,
 				Term:       cells.Eq(0).Text(),
 				Crn:        atoi(cells.Eq(1).Text()),
-				Instructor: nullString(instructor),
+				Instructor: NullString(nullString(instructor)),
 			}
 			isq := Isq{
 				Enrolled:     strings.TrimSpace(cells.Eq(3).Text()),
@@ -90,9 +90,9 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 
 		rows.Each(func(_ int, s *goquery.Selection) {
 			cells := s.Find("td")
-			parse := func(s string) float32 {
-				float, _ := strconv.ParseFloat(strings.TrimSpace(s), 32)
-				return float32(float)
+			parse := func(s string) float64 {
+				float, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
+				return float
 			}
 			percentA := parse(cells.Eq(4).Text())
 			percentAMinus := parse(cells.Eq(5).Text())
@@ -118,7 +118,7 @@ func GetIsqAndGrades(c *colly.Collector, name string, isProfessor bool) ([]Cours
 				Name:       courseID,
 				Term:       cells.Eq(0).Text(),
 				Crn:        atoi(cells.Eq(1).Text()),
-				Instructor: nullString(instructor),
+				Instructor: NullString(nullString(instructor)),
 			}
 			data := Grades{
 				PercentA: percentA + percentAMinus,

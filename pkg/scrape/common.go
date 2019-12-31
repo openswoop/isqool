@@ -58,10 +58,7 @@ func CollectScheduleParams(isqs []CourseIsq, grades []CourseGrades) []SchedulePa
 
 	for _, course := range courses {
 		subject := course.Name[0:3]
-		courseNumber, err := strconv.Atoi(course.Name[3:])
-		if err != nil {
-			continue
-		}
+		courseNumber := course.Name[3:]
 		term, err := TermToId(course.Term)
 		if err != nil {
 			continue
@@ -95,4 +92,14 @@ func nullString(value string) bigquery.NullString {
 			Valid:     true,
 		}
 	}
+}
+
+// Wrapper for specifying CSV representation
+type NullString bigquery.NullString
+
+func (n NullString) MarshalCSV() (string, error) {
+	if !n.Valid {
+		return "", nil
+	}
+	return n.StringVal, nil
 }
