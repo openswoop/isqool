@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const bannerUrl = "https://banner.unf.edu/pls/nfpo/"
+const bannerUrl = "https://bannerssb.unf.edu/nfpo-ssb/"
 
 // TermToId takes a term string like "Fall 2017" and determines its
 // corresponding id (e.g: 201780)
