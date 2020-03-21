@@ -95,10 +95,10 @@ func (bq BigQuery) insert(st interface{}, tableName string, data interface{}) er
 		panic(fmt.Errorf("failed to execute query: %v", err))
 	}
 
-	// Delete temp table
-	if err := newArrivals.Delete(bq.ctx); err != nil {
-		panic(fmt.Errorf("failed to delete arrivals table: %v", err))
-	}
+	// Don't delete the temp table so we can manually audit insertions
+	//if err := newArrivals.Delete(bq.ctx); err != nil {
+	//	panic(fmt.Errorf("failed to delete arrivals table: %v", err))
+	//}
 
 	return nil
 }

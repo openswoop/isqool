@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/docopt/docopt-go"
 	"github.com/gocolly/colly"
 	"github.com/rothso/isqool/pkg/database"
 	"github.com/rothso/isqool/pkg/scrape"
@@ -14,6 +15,21 @@ var (
 )
 
 func main() {
+	usage := `ISQ Scraper.
+
+Usage:
+  isqool-department <term>
+  isqool-department -h | --help
+
+Options:
+  -h --help       Show this screen.
+  --version       Show version.`
+
+	opts, _ := docopt.ParseArgs(usage, nil, "1.0.0rc1")
+
+	seedTerm, _ := opts.String("<term>") // e.g. Spring 2020
+	deptId := 6502
+
 	userCacheDir, err := os.UserCacheDir()
 	if err != nil {
 		panic(err)
@@ -23,9 +39,6 @@ func main() {
 	c := colly.NewCollector()
 	c.CacheDir = userCacheDir + "/isqool/web-cache"
 	c.AllowURLRevisit = true
-
-	seedTerm := "Spring 2020"
-	deptId := 6502
 
 	// Scrape the first term as a starting point
 	initialDept, err := scrape.GetDepartment(c, seedTerm, deptId)
