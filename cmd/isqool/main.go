@@ -29,12 +29,13 @@ func main() {
 	usage := `ISQ Scraper.
 
 Usage:
-  isqool <name>
+  isqool <name> [--no-cache]
   isqool -h | --help
 
 Options:
   -h --help       Show this screen.
-  --version       Show version.`
+  --version       Show version.
+  --no-cache	  Bypass the web cache.`
 
 	opts, _ := docopt.ParseArgs(usage, nil, "1.0.0rc1")
 
@@ -43,8 +44,11 @@ Options:
 
 	// Set up colly
 	c := colly.NewCollector()
-	c.CacheDir = cacheDir
 	c.AllowURLRevisit = true
+	if noCache, err := opts.Bool("--no-cache"); err == nil && !noCache {
+		log.Println("Warning: showing cached results")
+		c.CacheDir = cacheDir
+	}
 
 	// Scrape the data
 	isqs, grades, err := scrape.GetIsqAndGrades(c.Clone(), name, isProfessor)
