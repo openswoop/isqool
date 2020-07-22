@@ -32,6 +32,7 @@ type DeptSchedule struct {
 	Campus      string              `bigquery:"campus"`
 	WaitCount   int                 `bigquery:"wait_count"`
 	Approval    bigquery.NullString `bigquery:"approval"`
+	Department  int                 `bigquery:"department"`
 }
 
 func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule, error) {
@@ -139,6 +140,7 @@ func GetDepartment(c *colly.Collector, term string, deptId int) ([]DeptSchedule,
 					Campus:      strings.TrimSpace(cells.Eq(14).Text()),
 					WaitCount:   atoi(cells.Eq(15).Text()),
 					Approval:    nullString(strings.TrimSpace(cells.Eq(16).Text())),
+					Department:  deptId,
 				}
 				department = append(department, deptSchedule)
 			} else {
