@@ -1,17 +1,22 @@
 package main
 
 import (
+	"cloud.google.com/go/pubsub"
+	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/docopt/docopt-go"
 	"github.com/gocolly/colly"
 	"github.com/rothso/isqool/pkg/database"
 	"github.com/rothso/isqool/pkg/scrape"
+	"log"
 	"os"
 )
 
 var (
 	projectID = "syllabank-4e5b9"
 	datasetID = "isqool"
+	topicID   = "department-refreshed"
 )
 
 func main() {
@@ -101,6 +106,27 @@ Options:
 	}
 	if err := bq.InsertGrades(gradesTable); err != nil {
 		panic(fmt.Errorf("failed to insert grades: %v", err))
+	}
+
+	// Connect to PubSub
+	ctx := context.Background()
+	client, err := pubsub.NewClient(ctx, projectID)
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+
+	msg, err := json.Marshal(struct {
+		DepartmentId int `json:"departmentId"`
+	}{deptId})
+	if err != nil {
+		log.Fatalf("Failed to create message: %v", err)
+	}
+
+	// Publish an event
+	topic := client.Topic(topicID)
+	res := topic.Publish(ctx, &pubsub.Message{Data: msg})
+	if _, err := res.Get(ctx); err != nil {
+		log.Fatalf("Failed to publish message: %v", err)
 	}
 
 	fmt.Println("Done.")

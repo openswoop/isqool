@@ -3,6 +3,7 @@ module github.com/rothso/isqool
 require (
 	cloud.google.com/go v0.64.0
 	cloud.google.com/go/bigquery v1.10.0
+	cloud.google.com/go/pubsub v1.3.1
 	github.com/PuerkitoBio/goquery v1.5.1
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/antchfx/htmlquery v1.2.3 // indirect
