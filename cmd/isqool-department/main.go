@@ -23,16 +23,18 @@ func main() {
 	usage := `ISQ Scraper.
 
 Usage:
-  isqool-department <term>
+  isqool-department [--dry-run] <term>
   isqool-department -h | --help
 
 Options:
+  --dry-run		  Run without modifying the database.
   -h --help       Show this screen.
   --version       Show version.`
 
 	opts, _ := docopt.ParseArgs(usage, nil, "1.0.0rc1")
-
 	seedTerm, _ := opts.String("<term>") // e.g. Spring 2020
+	dryRun, _ := opts.Bool("--dry-run")
+
 	deptId := 6502
 
 	userCacheDir, err := os.UserCacheDir()
@@ -98,14 +100,18 @@ Options:
 	}
 
 	// Insert (merge) the department schedules, isqs, and grades
-	if err := bq.InsertDepartments(deptTable); err != nil {
-		panic(fmt.Errorf("failed to insert department schedule: %v", err))
-	}
-	if err := bq.InsertISQs(isqTable); err != nil {
-		panic(fmt.Errorf("failed to insert isqs: %v", err))
-	}
-	if err := bq.InsertGrades(gradesTable); err != nil {
-		panic(fmt.Errorf("failed to insert grades: %v", err))
+	if !dryRun {
+		if err := bq.InsertDepartments(deptTable); err != nil {
+			panic(fmt.Errorf("failed to insert department schedule: %v", err))
+		}
+		if err := bq.InsertISQs(isqTable); err != nil {
+			panic(fmt.Errorf("failed to insert isqs: %v", err))
+		}
+		if err := bq.InsertGrades(gradesTable); err != nil {
+			panic(fmt.Errorf("failed to insert grades: %v", err))
+		}
+	} else {
+		fmt.Println("Dry run: data will not be inserted")
 	}
 
 	// Connect to PubSub
