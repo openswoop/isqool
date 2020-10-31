@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/v2"
 	"github.com/spf13/cobra"
 	"os"
 )

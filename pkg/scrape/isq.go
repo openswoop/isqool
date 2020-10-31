@@ -2,7 +2,7 @@ package scrape
 
 import (
 	"github.com/PuerkitoBio/goquery"
-	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/v2"
 	"strings"
 )
 
