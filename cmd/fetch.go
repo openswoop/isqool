@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/rothso/isqool/pkg/app"
 	"github.com/rothso/isqool/pkg/database"
+	"github.com/rothso/isqool/pkg/report"
 	"github.com/rothso/isqool/pkg/scrape"
 	"log"
 	"os"
@@ -52,7 +52,7 @@ results will also be inserted into a local SQLite database.`,
 		log.Println("Saved to database", dbFile)
 
 		// Write to CSV
-		err = app.SaveReport(name, app.ReportInput{
+		err = report.WriteCourse(name, report.CourseInput{
 			Isqs:      isqs,
 			Grades:    grades,
 			Schedules: schedules,

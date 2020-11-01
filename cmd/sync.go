@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/rothso/isqool/pkg/database"
+	"github.com/rothso/isqool/pkg/report"
 	"github.com/rothso/isqool/pkg/scrape"
 	"log"
 	"strconv"
@@ -20,6 +21,7 @@ const (
 )
 
 var dryRun bool
+var debug bool
 
 // syncCmd represents the sync command
 var syncCmd = &cobra.Command{
@@ -35,6 +37,15 @@ and scrapes the ISQs, grades, and schedules of the courses offered.`,
 		initialDept, err := scrape.GetDepartment(c, seedTerm, deptId)
 		if err != nil {
 			panic(err)
+		}
+
+		// If the debug flag is set, output the CSV and exit early
+		if debug {
+			err := report.WriteDepartment(fmt.Sprintf("%d_%s", deptId, seedTerm), initialDept)
+			if err != nil {
+				panic(err)
+			}
+			return
 		}
 
 		seen := make(map[string]bool)
@@ -129,4 +140,8 @@ func init() {
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands:
 	syncCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Run without modifying the database (default: false)")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly:
+	syncCmd.Flags().BoolVar(&debug, "debug", false, "Dump the departmental summary as a CSV (default: false)")
 }

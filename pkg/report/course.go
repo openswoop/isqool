@@ -1,41 +1,24 @@
-package app
+package report
 
 import (
-	"github.com/gocarina/gocsv"
 	"github.com/rothso/isqool/pkg/scrape"
-	"os"
 	"sort"
 )
 
-type CsvCourse struct {
-	Name       string `csv:"course"`
-	Term       string `csv:"term"`
-	Crn        int    `csv:"crn"`
-	Instructor string `csv:"instructor"`
-}
-
-func toCsvCourse(c scrape.Course) CsvCourse {
-	instructor := ""
-	if c.Instructor.Valid {
-		instructor = c.Instructor.StringVal
-	}
-	return CsvCourse{c.Name, c.Term, c.Crn, instructor}
-}
-
-type reportView struct {
+type courseView struct {
 	CsvCourse
 	scrape.Isq
 	scrape.Grades
 	scrape.Schedule
 }
 
-type ReportInput struct {
+type CourseInput struct {
 	Isqs      []scrape.CourseIsq
 	Grades    []scrape.CourseGrades
 	Schedules []scrape.CourseSchedule
 }
 
-func SaveReport(name string, r ReportInput) error {
+func WriteCourse(name string, r CourseInput) error {
 	courseToIsq := make(map[scrape.Course]scrape.Isq, len(r.Isqs))
 	for _, v := range r.Isqs {
 		courseToIsq[v.Course] = v.Isq
@@ -50,9 +33,9 @@ func SaveReport(name string, r ReportInput) error {
 	}
 
 	// Left join grades and schedules to isqs
-	var rows report
+	var rows courseReport
 	for course, isq := range courseToIsq {
-		rows = append(rows, reportView{
+		rows = append(rows, courseView{
 			CsvCourse: toCsvCourse(course),
 			Isq:       isq,
 			Grades:    courseToGrades[course],
@@ -64,30 +47,18 @@ func SaveReport(name string, r ReportInput) error {
 	return WriteCsv(rows, name+".csv")
 }
 
-type report []reportView
+type courseReport []courseView
 
-func (r report) Len() int {
+func (r courseReport) Len() int {
 	return len(r)
 }
 
-func (r report) Swap(i, j int) {
+func (r courseReport) Swap(i, j int) {
 	r[i], r[j] = r[j], r[i]
 }
 
-func (r report) Less(i, j int) bool {
+func (r courseReport) Less(i, j int) bool {
 	aTerm, _ := scrape.TermToId(r[i].CsvCourse.Term)
 	bTerm, _ := scrape.TermToId(r[j].CsvCourse.Term)
 	return aTerm < bTerm
-}
-
-func WriteCsv(in interface{}, fileName string) error {
-	file, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	err = gocsv.Marshal(in, file)
-	if err != nil {
-		panic(err)
-	}
-	return file.Close()
 }
