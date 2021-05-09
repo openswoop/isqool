@@ -96,7 +96,7 @@ and scrapes the ISQs, grades, and schedules of the courses offered.`,
 
 		// Insert (merge) the department schedules, isqs, and grades
 		if !dryRun {
-			if err := bq.InsertDepartments(deptTable); err != nil {
+			if err := bq.InsertDepartments(deptTable, deptId, seedTerm); err != nil {
 				panic(fmt.Errorf("failed to insert department schedule: %v", err))
 			}
 			if err := bq.InsertISQs(isqTable); err != nil {

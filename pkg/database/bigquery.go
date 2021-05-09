@@ -37,19 +37,29 @@ func NewBigQuery(projectID, datasetID string) (BigQuery, error) {
 	return bq, nil
 }
 
-func (bq BigQuery) InsertDepartments(departments []scrape.DeptSchedule) error {
-	return bq.insert(scrape.DeptSchedule{}, "departments", departments)
+func (bq BigQuery) InsertDepartments(departments []scrape.DeptSchedule, requestDept int, requestTerm string) error {
+	matchClause := fmt.Sprintf(`
+		WHEN MATCHED AND t.instructor IS NULL THEN
+		  UPDATE
+		    SET instructor = s.instructor,
+		        instructor_n = s.instructor_n,
+		        meetings = s.meetings
+		WHEN MATCHED THEN
+		  UPDATE SET meetings = s.meetings
+		WHEN NOT MATCHED BY SOURCE AND (t.department = %d AND t.term = "%s") THEN
+		  DELETE`, requestDept, requestTerm)
+	return bq.insert(scrape.DeptSchedule{}, "departments", departments, matchClause)
 }
 
 func (bq BigQuery) InsertISQs(isqs []scrape.CourseIsq) error {
-	return bq.insert(scrape.CourseIsq{}, "isqs", isqs)
+	return bq.insert(scrape.CourseIsq{}, "isqs", isqs, "")
 }
 
 func (bq BigQuery) InsertGrades(grades []scrape.CourseGrades) error {
-	return bq.insert(scrape.CourseGrades{}, "grades", grades)
+	return bq.insert(scrape.CourseGrades{}, "grades", grades, "")
 }
 
-func (bq BigQuery) insert(st interface{}, tableName string, data interface{}) error {
+func (bq BigQuery) insert(st interface{}, tableName string, data interface{}, whenClause string) error {
 	// Infer the table schema
 	schema, err := bigquery.InferSchema(st)
 	if err != nil {
@@ -81,20 +91,17 @@ func (bq BigQuery) insert(st interface{}, tableName string, data interface{}) er
 	}
 
 	// Merge data
-	q := bq.client.Query(`
-		MERGE isqool.` + tableName + ` t
-		USING isqool.` + tempName + ` s
+	q := bq.client.Query(fmt.Sprintf(`
+		MERGE isqool.%s t
+		USING isqool.%s s
 		ON t.course = s.course
 		  AND t.term = s.term
 		  AND t.crn = s.crn
 		  AND (t.instructor = s.instructor
-			OR t.instructor IS NULL)
-		WHEN MATCHED AND t.instructor IS NULL THEN
-		  UPDATE SET
-			instructor = s.instructor,
-			instructor_n = s.instructor_n
+		    OR t.instructor IS NULL)
+		%s
 		WHEN NOT MATCHED THEN
-		  INSERT ROW`)
+		  INSERT ROW`, tableName, tempName, whenClause))
 	if _, err := q.Run(bq.ctx); err != nil { // TODO return status
 		panic(fmt.Errorf("failed to execute query: %v", err))
 	}
