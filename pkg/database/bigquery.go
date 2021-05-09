@@ -88,7 +88,11 @@ func (bq BigQuery) insert(st interface{}, tableName string, data interface{}) er
 		  AND t.term = s.term
 		  AND t.crn = s.crn
 		  AND (t.instructor = s.instructor
-        	OR IFNULL(t.instructor, s.instructor) IS NULL)
+			OR t.instructor IS NULL)
+		WHEN MATCHED AND t.instructor IS NULL THEN
+		  UPDATE SET
+			instructor = s.instructor,
+			instructor_n = s.instructor_n
 		WHEN NOT MATCHED THEN
 		  INSERT ROW`)
 	if _, err := q.Run(bq.ctx); err != nil { // TODO return status
