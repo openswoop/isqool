@@ -45,7 +45,8 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]CourseSchedule
 			rows := s.Find("td table.datadisplaytable tr").FilterFunction(func(_ int, s *goquery.Selection) bool {
 				// Ignore any laboratory information, for now
 				// TODO: store class type ("class" or "laboratory") as Schedule field
-				return strings.Contains(s.Find("td").First().Text(), "Class")
+				classType := s.Find("td").First().Text()
+				return strings.Contains(classType, "Class") || strings.Contains(classType, "Hybrid")
 			})
 
 			// Unique key for the map
@@ -68,10 +69,13 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]CourseSchedule
 				log.Println("Warning:", course, "met at uneven times; omitting additional blocks")
 			}
 
-			data := rows.First().Find("td")
+			// Some classes have both remote and physical sections; prefer the primary one
+			data := rows.FilterFunction(func(_ int, s *goquery.Selection) bool {
+				return strings.Contains(s.Find("td").Last().Text(), "(P)")
+			}).First().Find("td")
 
 			// Extract the instructor's last name
-			course.Instructor = nullString(getLastName(data.Last().Text()))
+			course.Instructor = nullString(getLastName(strings.TrimSpace(data.Last().Text())))
 
 			// Extract the start time and class duration
 			var startTime, duration string
@@ -91,7 +95,7 @@ func GetSchedules(c *colly.Collector, params []ScheduleParams) ([]CourseSchedule
 			// Extract the building number and room number
 			var building, room string
 			locationText := strings.TrimSpace(data.Eq(3).Text())
-			if locationText != "Online" && locationText != "Off Main Campus" && locationText != "TBA" {
+			if locationText != "Online" && locationText != "Off Main Campus" && locationText != "TBA" && locationText != "Remote Instruction" {
 				locationR := regexp.MustCompile(`([\d]+[A-Z]?)-[a-zA-Z\s.&-]+(\d+)`)
 				location := locationR.FindStringSubmatch(locationText)
 				building = location[1]

@@ -15,11 +15,12 @@ var dbFile = "/isqool/isqool.db"
 
 // fetchCmd represents the fetch command
 var fetchCmd = &cobra.Command{
-	Use:   "fetch",
+	Use:   "fetch [course|professor]",
 	Short: "Scrape summary data to a CSV file",
 	Long: `Given a course name or professor's N# this command will output
 a CSV file from the historical course data available. The
 results will also be inserted into a local SQLite database.`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0] // COT3100 or N00474503 etc.
 		isProfessor, _ := regexp.MatchString("N\\d{8}", name)

@@ -10,7 +10,7 @@ require (
 	github.com/gocarina/gocsv v0.0.0-20201028185805-d3cfa642cc69
 	github.com/gocolly/colly/v2 v2.1.0
 	github.com/lib/pq v1.3.0 // indirect
-	github.com/mattn/go-sqlite3 v2.0.3+incompatible
+	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/spf13/cobra v1.1.1
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102 // indirect
 	golang.org/x/sys v0.0.0-20201029080932-201ba4db2418 // indirect
