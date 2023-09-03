@@ -20,7 +20,7 @@ This project requires **Go**. Their website provides [installers](https://golang
 
 ```shell
 # Install or update
-$ go get -u github.com/rothso/isqool
+$ go install github.com/rothso/isqool@latest
 ```
 
 ### Usage
@@ -34,3 +34,18 @@ $ isqool N00009873
 ```
 
 Explore the CSV outputs using [Tableau](https://www.tableau.com/academic/students) or online with [RAW](http://rawgraphs.io/). For a deeper data analysis, try [Python](https://www.python.org/) or [R](https://www.datacamp.com/courses/free-introduction-to-r). The SQLite database can also be queried with [SQL](https://robots.thoughtbot.com/back-to-basics-sql). Samples of the outputted datasets can be found in the [`sample`](sample/) folder.
+
+### Advanced usage
+
+ISQool can also scrape and sync an entire department's course data to BigQuery, for more intense data analysis needs. [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials#personal) for Google Cloud must be set up. Currently, this project hardcoded to write to the `isqool` BigQuery dataset in the `syllabank-4e5b9` project.
+
+```shell
+# Sync departmental data and save to BigQuery
+$ isqool sync 6502 "Fall 2023"
+
+# Dry run: Run without modifying the database
+$ isqool sync 6502 "Fall 2023" --dry-run
+
+# Debug mode: Output a CSV instead of writing to the database
+$ isqool sync 6502 "Fall 2023" --debug
+```
