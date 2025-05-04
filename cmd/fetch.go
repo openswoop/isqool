@@ -1,12 +1,17 @@
 package cmd
 
 import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+
 	"github.com/rothso/isqool/pkg/database"
 	"github.com/rothso/isqool/pkg/report"
 	"github.com/rothso/isqool/pkg/scrape"
-	"log"
-	"os"
-	"regexp"
 
 	"github.com/spf13/cobra"
 )
@@ -24,7 +29,24 @@ results will also be inserted into a local SQLite database.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0] // COT3100 or N00474503 etc.
 		isProfessor, _ := regexp.MatchString("N\\d{8}", name)
-
+		// Professor name is present
+		fmt.Println(isProfessor)
+		if !isProfessor && len(name) > 7 {
+			url := "https://webapps.unf.edu/faculty/bio/api/v1/faculty?searchLimit=1&searchTerm="
+			name = strings.ReplaceAll(name, " ", "%20") // Replaces space with %20 for web request
+			url += name
+			fmt.Println(url)
+			response, error := http.Get(url)
+			if error != nil {
+				os.Exit(1)
+			}
+			defer response.Body.Close()
+			body, error := io.ReadAll(response.Body)
+			re := regexp.MustCompile("N\\d{8}")
+			name = re.FindString(string(body))
+			isProfessor = true
+		}
+		fmt.Println(name)
 		// Scrape the data
 		isqs, grades, err := scrape.GetIsqAndGrades(c.Clone(), name, isProfessor)
 		if err != nil {
