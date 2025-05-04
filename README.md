@@ -20,7 +20,7 @@ This project requires **Go**. Their website provides [installers](https://golang
 
 ```shell
 # Install or update
-$ go install github.com/rothso/isqool@latest
+$ go install github.com/openswoop/isqool@latest
 ```
 
 ### Usage

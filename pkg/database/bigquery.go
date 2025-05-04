@@ -4,7 +4,7 @@ import (
 	"cloud.google.com/go/bigquery"
 	"context"
 	"fmt"
-	"github.com/rothso/isqool/pkg/scrape"
+	"github.com/openswoop/isqool/pkg/scrape"
 	"google.golang.org/api/googleapi"
 	"strconv"
 	"time"

@@ -2,7 +2,7 @@ package report
 
 import (
 	"github.com/gocarina/gocsv"
-	"github.com/rothso/isqool/pkg/scrape"
+	"github.com/openswoop/isqool/pkg/scrape"
 	"os"
 )
 

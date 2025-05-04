@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"github.com/go-gorp/gorp/v3"
 	"github.com/mattn/go-sqlite3"
-	"github.com/rothso/isqool/pkg/scrape"
+	"github.com/openswoop/isqool/pkg/scrape"
 	"log"
 )
 

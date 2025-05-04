@@ -1,7 +1,7 @@
 package report
 
 import (
-	"github.com/rothso/isqool/pkg/scrape"
+	"github.com/openswoop/isqool/pkg/scrape"
 	"sort"
 )
 
