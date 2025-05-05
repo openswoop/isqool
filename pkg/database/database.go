@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/rothso/isqool/pkg/scrape"
+	"github.com/openswoop/isqool/pkg/scrape"
 	"io"
 )
 

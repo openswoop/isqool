@@ -3,7 +3,7 @@ package report
 import (
 	"cloud.google.com/go/bigquery"
 	"fmt"
-	"github.com/rothso/isqool/pkg/scrape"
+	"github.com/openswoop/isqool/pkg/scrape"
 	"strconv"
 )
 

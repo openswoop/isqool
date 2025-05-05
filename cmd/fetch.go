@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/rothso/isqool/pkg/database"
-	"github.com/rothso/isqool/pkg/report"
-	"github.com/rothso/isqool/pkg/scrape"
+	"github.com/openswoop/isqool/pkg/database"
+	"github.com/openswoop/isqool/pkg/report"
+	"github.com/openswoop/isqool/pkg/scrape"
 
 	"github.com/spf13/cobra"
 )
