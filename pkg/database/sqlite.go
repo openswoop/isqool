@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/go-gorp/gorp/v3"
 	"github.com/mattn/go-sqlite3"
 	"github.com/openswoop/isqool/pkg/scrape"
@@ -68,8 +69,9 @@ func (s Sqlite) save(rows []interface{}) error {
 	}
 	for _, row := range rows {
 		err := tx.Insert(row)
-		if sqliteError, ok := err.(sqlite3.Error); ok {
-			if sqliteError.ExtendedCode == sqlite3.ErrConstraintUnique {
+		var sqliteError sqlite3.Error
+		if errors.As(err, &sqliteError) {
+			if errors.Is(sqliteError.ExtendedCode, sqlite3.ErrConstraintUnique) {
 				continue // silently ignore duplicates
 			}
 		}

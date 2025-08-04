@@ -26,6 +26,7 @@ vendor/
 *.db
 isqool.yml
 !sample/*.csv
+isqool
 
 ### Secrets
 *.json

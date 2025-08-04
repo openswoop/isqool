@@ -23,6 +23,15 @@ This project requires **Go**. Their website provides [installers](https://golang
 $ go install github.com/openswoop/isqool@latest
 ```
 
+### Development
+
+To build this project, `gcc` needs to be installed due to a dependency on [go-sqlite3](https://github.com/mattn/go-sqlite3).
+
+```shell
+$ go build
+$ ./isqool
+```
+
 ### Usage
 
 ```shell
